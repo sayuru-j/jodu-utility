@@ -245,10 +245,11 @@ class MainActivity : AppCompatActivity() {
         val linked = service?.isLinked == true
         val outgoing = service?.outgoingPairDeviceId
         val pairedId = service?.pairedDesktop?.deviceId
-        val busy = linked || service?.pairStatus == "outgoing" || !bridgeEnabled
+        val busy = linked || !bridgeEnabled
 
         peers.forEach { peer ->
             val isPaired = peer.deviceId == pairedId && linked
+            val isOutgoing = peer.deviceId == outgoing
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -258,10 +259,14 @@ class MainActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                 ).apply { bottomMargin = dp(8) }
-                isEnabled = !busy || isPaired
-                alpha = if (busy && !isPaired && peer.deviceId != outgoing) 0.45f else 1f
+                isEnabled = !busy || isOutgoing || isPaired
+                alpha = if (busy && !isPaired && !isOutgoing) 0.45f else 1f
                 setOnClickListener {
-                    if (!busy) service?.requestPair(peer.deviceId)
+                    when {
+                        isPaired -> Unit
+                        busy && !isOutgoing -> Unit
+                        else -> service?.requestPair(peer.deviceId)
+                    }
                 }
             }
 
@@ -295,7 +300,7 @@ class MainActivity : AppCompatActivity() {
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.muted))
                 text = when {
                     isPaired -> getString(R.string.label_paired)
-                    peer.deviceId == outgoing -> "…"
+                    peer.deviceId == outgoing -> "cancel"
                     else -> getString(R.string.action_pair)
                 }
             }

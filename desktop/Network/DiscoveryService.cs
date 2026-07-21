@@ -49,16 +49,39 @@ public sealed class DiscoveryService : IDisposable
     public void RequestPair(DiscoveryPayload target)
     {
         var payload = LocalPairPayload(target.DeviceId);
-        SendTo(target.Ip, JoduMessage.Create(EventTypes.PairRequest, payload));
-        Broadcast(JoduMessage.Create(EventTypes.PairRequest, payload));
+        // Burst — UDP pair packets are easily dropped on some APs.
+        _ = Task.Run(async () =>
+        {
+            for (var attempt = 0; attempt < 4; attempt++)
+            {
+                SendTo(target.Ip, JoduMessage.Create(EventTypes.PairRequest, payload));
+                Broadcast(JoduMessage.Create(EventTypes.PairRequest, payload));
+                if (attempt < 3)
+                {
+                    try { await Task.Delay(350, _cts.Token); }
+                    catch (OperationCanceledException) { return; }
+                }
+            }
+        });
     }
 
     public void RespondPair(PairPayload request, bool accepted)
     {
         var payload = LocalPairPayload(request.FromDeviceId);
         payload.Accepted = accepted;
-        SendTo(request.FromIp, JoduMessage.Create(EventTypes.PairResponse, payload));
-        Broadcast(JoduMessage.Create(EventTypes.PairResponse, payload));
+        _ = Task.Run(async () =>
+        {
+            for (var attempt = 0; attempt < 4; attempt++)
+            {
+                SendTo(request.FromIp, JoduMessage.Create(EventTypes.PairResponse, payload));
+                Broadcast(JoduMessage.Create(EventTypes.PairResponse, payload));
+                if (attempt < 3)
+                {
+                    try { await Task.Delay(350, _cts.Token); }
+                    catch (OperationCanceledException) { return; }
+                }
+            }
+        });
     }
 
     private bool ShouldReply(string deviceId)
@@ -203,11 +226,14 @@ public sealed class DiscoveryService : IDisposable
                         var req = msg.GetPayload<PairPayload>();
                         if (req is null) break;
 
-                        // Case-insensitive match; also accept blank target as "any desktop"
-                        // for older clients that omitted targetDeviceId.
+                        // Prefer targeted match; also accept blank/"any" targets.
+                        // Android clients sometimes cache a stale desktop deviceId after a
+                        // restart — still surface phone→desktop pair prompts when the
+                        // sender is clearly a phone on this LAN.
                         var targeted = string.IsNullOrWhiteSpace(req.TargetDeviceId)
                             || string.Equals(req.TargetDeviceId, _deviceId, StringComparison.OrdinalIgnoreCase);
-                        if (!targeted) break;
+                        var fromPhone = string.Equals(req.FromRole, "android", StringComparison.OrdinalIgnoreCase);
+                        if (!targeted && !fromPhone) break;
 
                         req.FromIp = result.RemoteEndPoint.Address.ToString();
                         PairRequestReceived?.Invoke(req);
@@ -216,7 +242,10 @@ public sealed class DiscoveryService : IDisposable
                     case EventTypes.PairResponse:
                     {
                         var res = msg.GetPayload<PairPayload>();
-                        if (res is null || res.TargetDeviceId != _deviceId) break;
+                        if (res is null) break;
+                        var forUs = string.IsNullOrWhiteSpace(res.TargetDeviceId)
+                            || string.Equals(res.TargetDeviceId, _deviceId, StringComparison.OrdinalIgnoreCase);
+                        if (!forUs) break;
                         res.FromIp = result.RemoteEndPoint.Address.ToString();
                         PairResponseReceived?.Invoke(res);
                         break;

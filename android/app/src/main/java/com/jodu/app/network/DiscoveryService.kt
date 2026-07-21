@@ -75,17 +75,25 @@ class DiscoveryService(
                             }
                             peers[peer.deviceId] = peer.copy(ip = ip) to System.currentTimeMillis()
                             onPeersChanged(currentPeers())
+                            // Unicast our identity back — more reliable than broadcast alone.
+                            if (ip.isNotBlank()) {
+                                sendTo(ip, EventTypes.DISCOVERY, localDiscovery())
+                            }
                         }
                         EventTypes.PAIR_REQUEST -> {
                             val req = JoduJson.payload<PairPayload>(msg) ?: continue
-                            if (req.targetDeviceId != deviceId) continue
+                            val targeted = req.targetDeviceId.isBlank() ||
+                                req.targetDeviceId.equals(deviceId, ignoreCase = true)
+                            if (!targeted) continue
                             onPairRequest(
                                 req.copy(fromIp = sourceIp.ifBlank { req.fromIp }),
                             )
                         }
                         EventTypes.PAIR_RESPONSE -> {
                             val res = JoduJson.payload<PairPayload>(msg) ?: continue
-                            if (res.targetDeviceId != deviceId) continue
+                            val forUs = res.targetDeviceId.isBlank() ||
+                                res.targetDeviceId.equals(deviceId, ignoreCase = true)
+                            if (!forUs) continue
                             onPairResponse(
                                 res.copy(fromIp = sourceIp.ifBlank { res.fromIp }),
                             )

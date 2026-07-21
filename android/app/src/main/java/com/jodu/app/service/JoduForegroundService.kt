@@ -283,10 +283,25 @@ class JoduForegroundService : Service() {
 
     fun requestPair(deviceId: String) {
         val target = lanPeers.firstOrNull { it.deviceId == deviceId } ?: return
+        // Tap again while waiting cancels a stuck outgoing request.
+        if (pairStatus == "outgoing" && outgoingPairDeviceId == deviceId) {
+            outgoingPairDeviceId = null
+            pairStatus = "idle"
+            notifyUi()
+            return
+        }
         outgoingPairDeviceId = deviceId
         pairStatus = "outgoing"
         discovery.requestPair(target)
         notifyUi()
+        scope.launch {
+            delay(18_000)
+            if (pairStatus == "outgoing" && outgoingPairDeviceId == deviceId) {
+                outgoingPairDeviceId = null
+                pairStatus = "idle"
+                notifyUi()
+            }
+        }
     }
 
     fun acceptPair() {

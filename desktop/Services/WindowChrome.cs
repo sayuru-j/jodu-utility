@@ -26,8 +26,17 @@ internal static class WindowChrome
     [DllImport("user32.dll")]
     public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    private static extern bool FlashWindow(IntPtr hWnd, bool invert);
+
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+    public static void Flash(IntPtr hwnd)
+    {
+        try { FlashWindow(hwnd, true); }
+        catch { /* ignore */ }
+    }
 
     public static void TryEnableRoundedCorners(IntPtr hwnd)
     {

@@ -29,7 +29,6 @@ public sealed class MainForm : Form
     private string? _outgoingPairDeviceId;
     private string _pairStatus = "idle";
     private bool _connected;
-    private bool _pairPromptOpen;
 
     public MainForm()
     {
@@ -151,44 +150,28 @@ public sealed class MainForm : Form
         {
             BeginInvoke(() =>
             {
-                // UDP bursts retry — only one prompt at a time.
-                if (_pairPromptOpen) return;
-                if (_pairStatus == "incoming" &&
-                    _incomingPair?.FromDeviceId == req.FromDeviceId)
+                // UDP bursts retry — keep showing the same incoming request (no modal).
+                var samePhone = _pairStatus == "incoming" &&
+                    string.Equals(_incomingPair?.FromDeviceId, req.FromDeviceId, StringComparison.OrdinalIgnoreCase);
+                if (samePhone)
                 {
+                    _incomingPair = req;
                     return;
                 }
 
                 _incomingPair = req;
                 _pairStatus = "incoming";
-                _pairPromptOpen = true;
                 ShowFromTray();
                 _toasts.ShowInfo("Pair request", $"{req.FromDeviceName} wants to pair");
-                PushUiState();
-
                 try
                 {
-                    // Native dialog — WebView banners can miss updates (tray/Vite timing).
-                    var result = MessageBox.Show(
-                        this,
-                        $"{req.FromDeviceName}\n{req.FromIp}\n\nAccept pair request from this phone?",
-                        "JODU — pair request",
-                        MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Question,
-                        MessageBoxDefaultButton.Button1);
-
-                    if (_incomingPair?.FromDeviceId != req.FromDeviceId)
-                        return;
-
-                    if (result == DialogResult.Yes)
-                        AcceptIncomingPair();
-                    else
-                        RejectIncomingPair();
+                    _tray.BalloonTipTitle = "JODU — pair request";
+                    _tray.BalloonTipText = $"{req.FromDeviceName} ({req.FromIp}) wants to pair";
+                    _tray.BalloonTipIcon = ToolTipIcon.Info;
+                    _tray.ShowBalloonTip(12000);
                 }
-                finally
-                {
-                    _pairPromptOpen = false;
-                }
+                catch { /* ignore */ }
+                PushUiState();
             });
         };
 
@@ -594,7 +577,11 @@ public sealed class MainForm : Form
     {
         Show();
         WindowState = FormWindowState.Normal;
+        TopMost = true;
         Activate();
+        BringToFront();
+        TopMost = false;
+        WindowChrome.Flash(Handle);
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
