@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -13,6 +14,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -36,10 +38,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rootContent: View
     private lateinit var bridgeSwitch: MaterialSwitch
     private lateinit var bridgeLabel: TextView
+    private lateinit var btnSendFile: Button
+    private lateinit var filesHint: TextView
 
     private var updatingSwitch = false
     private val prefs by lazy { getSharedPreferences(JoduForegroundService.PREFS, MODE_PRIVATE) }
     private val uiListener = { runOnUiThread { refreshStatus() } }
+
+    private val pickFiles = registerForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris: List<Uri> ->
+        if (uris.isEmpty()) return@registerForActivityResult
+        uris.forEach { uri ->
+            runCatching {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+        }
+        JoduForegroundService.instance?.sendFilesToDesktop(uris)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +76,8 @@ class MainActivity : AppCompatActivity() {
         deviceList = findViewById(R.id.deviceList)
         bridgeSwitch = findViewById(R.id.bridgeSwitch)
         bridgeLabel = findViewById(R.id.bridgeLabel)
+        btnSendFile = findViewById(R.id.btnSendFile)
+        filesHint = findViewById(R.id.filesHint)
 
         val basePad = dp(16)
         val sidePad = dp(20)
@@ -94,6 +115,9 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnStopPing).setOnClickListener {
             JoduForegroundService.instance?.stopPing()
+        }
+        btnSendFile.setOnClickListener {
+            pickFiles.launch(arrayOf("*/*"))
         }
 
         requestRuntimePermissions()
@@ -172,6 +196,14 @@ class MainActivity : AppCompatActivity() {
             pairBanner.visibility = View.GONE
         }
 
+        btnSendFile.isEnabled = linked
+        val transfer = service?.lastTransferNote
+        filesHint.text = when {
+            !linked -> getString(R.string.files_hint)
+            !transfer.isNullOrBlank() -> transfer
+            else -> getString(R.string.files_hint)
+        }
+
         renderDevices(peers, service)
     }
 
@@ -186,9 +218,14 @@ class MainActivity : AppCompatActivity() {
         paired: DiscoveryPayload?,
         linked: Boolean,
     ): List<DiscoveryPayload> {
-        if (!linked || paired == null) return peers
-        if (peers.any { it.deviceId == paired.deviceId }) return peers
-        return listOf(paired) + peers
+        val byIp = LinkedHashMap<String, DiscoveryPayload>()
+        fun put(peer: DiscoveryPayload) {
+            val key = peer.ip.ifBlank { peer.deviceId }.lowercase()
+            byIp[key] = peer
+        }
+        peers.forEach(::put)
+        if (linked && paired != null) put(paired)
+        return byIp.values.toList()
     }
 
     private fun renderDevices(peers: List<DiscoveryPayload>, service: JoduForegroundService?) {

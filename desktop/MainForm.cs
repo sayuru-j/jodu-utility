@@ -135,6 +135,13 @@ public sealed class MainForm : Form
             BeginInvoke(() =>
             {
                 _lanPeers = peers;
+                if (_peer is not null)
+                {
+                    var fresh = peers.FirstOrDefault(p =>
+                        string.Equals(p.Ip, _peer.Ip, StringComparison.OrdinalIgnoreCase));
+                    if (fresh is not null)
+                        _peer = fresh;
+                }
                 PushUiState();
             });
         };

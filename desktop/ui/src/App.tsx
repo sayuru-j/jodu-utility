@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import type { AppState } from './bridge'
+import type { AppState, Peer } from './bridge'
 import { sendCommand, subscribeState, uploadFiles } from './bridge'
 import './App.css'
 
@@ -40,15 +40,14 @@ export default function App() {
   const device = state.telemetry?.deviceName || state.peer?.deviceName || 'phone'
   const playing = state.media?.isPlaying ?? false
   const peers = useMemo(() => {
-    const list = [...(state.peers ?? [])]
-    if (
-      state.connected &&
-      state.peer &&
-      !list.some((p) => p.deviceId === state.peer!.deviceId)
-    ) {
-      list.unshift(state.peer)
+    const byIp = new Map<string, Peer>()
+    for (const p of state.peers ?? []) {
+      byIp.set((p.ip || p.deviceId).toLowerCase(), p)
     }
-    return list
+    if (state.connected && state.peer) {
+      byIp.set((state.peer.ip || state.peer.deviceId).toLowerCase(), state.peer)
+    }
+    return [...byIp.values()]
   }, [state.peers, state.peer, state.connected])
 
   async function onDrop(files: FileList | null) {
@@ -331,6 +330,7 @@ export default function App() {
             >
               <span className="label">files</span>
               <strong>drop to phone</strong>
+              <span className="sub">phone can send back to this pc · downloads</span>
               <label className="pick">
                 browse
                 <input

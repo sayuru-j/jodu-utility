@@ -69,6 +69,10 @@ class DiscoveryService(
                             if (peer.deviceId == deviceId) continue
                             if (!peer.role.equals("desktop", ignoreCase = true)) continue
                             val ip = sourceIp.ifBlank { peer.ip }
+                            // Drop stale identities that share this LAN IP (deviceId rotates on restart).
+                            peers.entries.removeIf { (id, entry) ->
+                                id != peer.deviceId && entry.first.ip == ip
+                            }
                             peers[peer.deviceId] = peer.copy(ip = ip) to System.currentTimeMillis()
                             onPeersChanged(currentPeers())
                         }

@@ -11,7 +11,7 @@ public sealed class DiscoveryService : IDisposable
 {
     private readonly UdpClient _udp;
     private readonly CancellationTokenSource _cts = new();
-    private readonly string _deviceId = Guid.NewGuid().ToString("N")[..12];
+    private readonly string _deviceId;
     private readonly string _deviceName;
     private readonly ConcurrentDictionary<string, (DiscoveryPayload Peer, DateTime Seen)> _peers = new();
     private readonly ConcurrentDictionary<string, DateTime> _lastReply = new();
@@ -25,6 +25,7 @@ public sealed class DiscoveryService : IDisposable
 
     public DiscoveryService(string? deviceName = null)
     {
+        _deviceId = LoadOrCreateDeviceId();
         _deviceName = deviceName ?? Environment.MachineName;
         _udp = new UdpClient();
         _udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -178,6 +179,16 @@ public sealed class DiscoveryService : IDisposable
                         // Prefer the packet source IP — advertised IPs are often wrong on mobile.
                         peer.Ip = result.RemoteEndPoint.Address.ToString();
 
+                        // Drop stale identities that share this LAN IP (deviceId rotates on restart).
+                        foreach (var (id, entry) in _peers)
+                        {
+                            if (id != peer.DeviceId &&
+                                string.Equals(entry.Peer.Ip, peer.Ip, StringComparison.OrdinalIgnoreCase))
+                            {
+                                _peers.TryRemove(id, out _);
+                            }
+                        }
+
                         _peers[peer.DeviceId] = (peer, DateTime.UtcNow);
                         PeersChanged?.Invoke(Peers);
 
@@ -283,6 +294,32 @@ public sealed class DiscoveryService : IDisposable
     }
 
     private static string GetLocalIp() => HttpListenerFactory.GetLocalIp();
+
+    private static string LoadOrCreateDeviceId()
+    {
+        try
+        {
+            var dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "JODU");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, "device-id.txt");
+            if (File.Exists(path))
+            {
+                var existing = File.ReadAllText(path).Trim();
+                if (existing.Length >= 8)
+                    return existing.Length > 12 ? existing[..12] : existing;
+            }
+
+            var created = Guid.NewGuid().ToString("N")[..12];
+            File.WriteAllText(path, created);
+            return created;
+        }
+        catch
+        {
+            return Guid.NewGuid().ToString("N")[..12];
+        }
+    }
 
     public void Dispose()
     {

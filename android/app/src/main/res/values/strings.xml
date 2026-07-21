@@ -32,6 +32,9 @@
     <string name="label_status">status</string>
     <string name="label_devices">devices on lan</string>
     <string name="label_bridge">bridge</string>
+    <string name="label_files">files</string>
+    <string name="files_hint">send to paired desktop · downloads folder</string>
+    <string name="action_send_file">send file to desktop</string>
     <string name="label_access">access</string>
     <string name="devices_empty">scanning for desktops…</string>
     <string name="ports_footer">ws 19284 · http 19286 · discovery 19283</string>

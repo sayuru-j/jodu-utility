@@ -22,6 +22,7 @@ import com.jodu.app.R
 import com.jodu.app.media.MediaControllerBridge
 import com.jodu.app.network.DiscoveryService
 import com.jodu.app.network.FileHttpServer
+import com.jodu.app.network.FileUploadClient
 import com.jodu.app.network.JoduWebSocketClient
 import com.jodu.app.protocol.ClipboardPayload
 import com.jodu.app.protocol.DiscoveryPayload
@@ -46,7 +47,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 class JoduForegroundService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val deviceId = UUID.randomUUID().toString().replace("-", "").take(12)
+    private lateinit var deviceId: String
 
     private lateinit var discovery: DiscoveryService
     private lateinit var socket: JoduWebSocketClient
@@ -64,6 +65,8 @@ class JoduForegroundService : Service() {
     @Volatile var outgoingPairDeviceId: String? = null
         private set
     @Volatile var pairStatus: String = "idle"
+        private set
+    @Volatile var lastTransferNote: String? = null
         private set
 
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
@@ -90,6 +93,7 @@ class JoduForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        deviceId = resolveDeviceId()
         createChannel()
         getSharedPreferences(PREFS, MODE_PRIVATE)
             .edit()
@@ -100,7 +104,12 @@ class JoduForegroundService : Service() {
         clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
         media = MediaControllerBridge(this)
         ping = PingAlertHelper(this)
-        fileServer = FileHttpServer()
+        fileServer = FileHttpServer(this).also { server ->
+            server.onFileReceived = { path ->
+                lastTransferNote = "received file"
+                notifyUi()
+            }
+        }
 
         socket = JoduWebSocketClient(
             scope = scope,
@@ -127,6 +136,12 @@ class JoduForegroundService : Service() {
                 ?: Build.MODEL,
             onPeersChanged = { peers ->
                 lanPeers = peers
+                val linkedPeer = desktop
+                if (linkedPeer != null) {
+                    peers.firstOrNull { it.ip == linkedPeer.ip }?.let { fresh ->
+                        desktop = fresh
+                    }
+                }
                 notifyUi()
             },
             onPairRequest = { req ->
@@ -216,6 +231,22 @@ class JoduForegroundService : Service() {
 
     val isPinging: Boolean
         get() = ::ping.isInitialized && ping.isPinging
+
+    fun sendFilesToDesktop(uris: List<android.net.Uri>) {
+        val peer = desktop ?: return
+        if (!isLinked || uris.isEmpty()) return
+        scope.launch {
+            lastTransferNote = "sending ${uris.size}…"
+            notifyUi()
+            var ok = 0
+            for (uri in uris) {
+                val result = FileUploadClient.upload(this@JoduForegroundService, peer, uri)
+                if (result.isSuccess) ok++
+            }
+            lastTransferNote = if (ok == uris.size) "sent $ok file(s)" else "sent $ok/${uris.size}"
+            notifyUi()
+        }
+    }
 
     fun sendOtp(payload: OtpPayload) {
         socket.send(EventTypes.OTP_DETECTED, payload)
@@ -479,6 +510,15 @@ class JoduForegroundService : Service() {
             .build()
     }
 
+    private fun resolveDeviceId(): String {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val existing = prefs.getString(PREF_DEVICE_ID, null)?.trim()
+        if (!existing.isNullOrBlank()) return existing.take(12)
+        val created = UUID.randomUUID().toString().replace("-", "").take(12)
+        prefs.edit().putString(PREF_DEVICE_ID, created).apply()
+        return created
+    }
+
     val isLinked: Boolean
         get() = ::socket.isInitialized && socket.isConnected
 
@@ -495,6 +535,7 @@ class JoduForegroundService : Service() {
 
         const val PREFS = "jodu_prefs"
         const val PREF_BRIDGE_ENABLED = "bridge_enabled"
+        const val PREF_DEVICE_ID = "device_id"
 
         @Volatile
         var instance: JoduForegroundService? = null
