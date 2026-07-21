@@ -28,6 +28,7 @@ public sealed class MainForm : Form
     private string? _outgoingPairDeviceId;
     private string _pairStatus = "idle";
     private bool _connected;
+    private bool _pairPromptOpen;
 
     public MainForm()
     {
@@ -54,6 +55,18 @@ public sealed class MainForm : Form
         };
         _tray.DoubleClick += (_, _) => ShowFromTray();
         _tray.ContextMenuStrip = BuildTrayMenu();
+
+        _toasts.FallbackBalloon = (title, body) =>
+        {
+            try
+            {
+                _tray.BalloonTipTitle = title;
+                _tray.BalloonTipText = body;
+                _tray.BalloonTipIcon = ToolTipIcon.Info;
+                _tray.ShowBalloonTip(8000);
+            }
+            catch { /* ignore */ }
+        };
 
         _bridge = new UiBridge(this);
         WireServices();
@@ -130,11 +143,44 @@ public sealed class MainForm : Form
         {
             BeginInvoke(() =>
             {
+                // UDP bursts retry — only one prompt at a time.
+                if (_pairPromptOpen) return;
+                if (_pairStatus == "incoming" &&
+                    _incomingPair?.FromDeviceId == req.FromDeviceId)
+                {
+                    return;
+                }
+
                 _incomingPair = req;
                 _pairStatus = "incoming";
+                _pairPromptOpen = true;
                 ShowFromTray();
                 _toasts.ShowInfo("Pair request", $"{req.FromDeviceName} wants to pair");
                 PushUiState();
+
+                try
+                {
+                    // Native dialog — WebView banners can miss updates (tray/Vite timing).
+                    var result = MessageBox.Show(
+                        this,
+                        $"{req.FromDeviceName}\n{req.FromIp}\n\nAccept pair request from this phone?",
+                        "JODU — pair request",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question,
+                        MessageBoxDefaultButton.Button1);
+
+                    if (_incomingPair?.FromDeviceId != req.FromDeviceId)
+                        return;
+
+                    if (result == DialogResult.Yes)
+                        AcceptIncomingPair();
+                    else
+                        RejectIncomingPair();
+                }
+                finally
+                {
+                    _pairPromptOpen = false;
+                }
             });
         };
 
@@ -237,6 +283,11 @@ public sealed class MainForm : Form
             }
 
             _webView.CoreWebView2.WebMessageReceived += OnWebMessage;
+            _webView.CoreWebView2.NavigationCompleted += (_, _) =>
+            {
+                if (IsHandleCreated)
+                    BeginInvoke(PushUiState);
+            };
 
             var uiUrl = ResolveUiUrl();
             _webView.CoreWebView2.Navigate(uiUrl);

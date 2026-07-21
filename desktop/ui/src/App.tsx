@@ -121,6 +121,28 @@ export default function App() {
         </div>
       </div>
 
+      {state.incomingPair ? (
+        <section className="pair-banner" aria-label="Incoming pair request">
+          <div>
+            <span className="label">pair request</span>
+            <strong>{state.incomingPair.deviceName}</strong>
+            <span className="sub">{state.incomingPair.ip}</span>
+          </div>
+          <div className="pair-actions">
+            <button type="button" onClick={() => sendCommand({ action: 'PAIR_REJECT' })}>
+              decline
+            </button>
+            <button
+              type="button"
+              className="solid"
+              onClick={() => sendCommand({ action: 'PAIR_ACCEPT' })}
+            >
+              accept
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {settingsOpen ? (
         <section className="settings" aria-label="Settings">
           <div className="settings-head">
@@ -187,28 +209,6 @@ export default function App() {
               <p>pair</p>
             </div>
           </header>
-
-          {state.incomingPair ? (
-            <section className="pair-banner" aria-label="Incoming pair request">
-              <div>
-                <span className="label">pair request</span>
-                <strong>{state.incomingPair.deviceName}</strong>
-                <span className="sub">{state.incomingPair.ip}</span>
-              </div>
-              <div className="pair-actions">
-                <button type="button" onClick={() => sendCommand({ action: 'PAIR_REJECT' })}>
-                  decline
-                </button>
-                <button
-                  type="button"
-                  className="solid"
-                  onClick={() => sendCommand({ action: 'PAIR_ACCEPT' })}
-                >
-                  accept
-                </button>
-              </div>
-            </section>
-          ) : null}
 
           <section className="cell devices" aria-label="Devices on LAN">
             <div className="devices-head">

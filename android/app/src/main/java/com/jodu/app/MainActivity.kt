@@ -30,6 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var linkGlyph: View
     private lateinit var pairBanner: View
     private lateinit var pairFrom: TextView
+    private lateinit var pingBanner: View
     private lateinit var devicesEmpty: TextView
     private lateinit var deviceList: LinearLayout
     private lateinit var rootContent: View
@@ -51,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         linkGlyph = findViewById(R.id.linkGlyph)
         pairBanner = findViewById(R.id.pairBanner)
         pairFrom = findViewById(R.id.pairFrom)
+        pingBanner = findViewById(R.id.pingBanner)
         devicesEmpty = findViewById(R.id.devicesEmpty)
         deviceList = findViewById(R.id.deviceList)
         bridgeSwitch = findViewById(R.id.bridgeSwitch)
@@ -89,6 +91,9 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnDecline).setOnClickListener {
             JoduForegroundService.instance?.rejectPair()
+        }
+        findViewById<Button>(R.id.btnStopPing).setOnClickListener {
+            JoduForegroundService.instance?.stopPing()
         }
 
         requestRuntimePermissions()
@@ -137,6 +142,7 @@ class MainActivity : AppCompatActivity() {
         bridgeLabel.setText(if (bridgeEnabled) R.string.bridge_on else R.string.bridge_off)
 
         when {
+            service?.isPinging == true -> status.setText(R.string.status_pinging)
             linked -> status.text = getString(R.string.service_paired, pairedName ?: "desktop")
             incoming != null -> status.setText(R.string.status_incoming)
             service?.pairStatus == "outgoing" -> status.setText(R.string.status_outgoing)
@@ -144,6 +150,8 @@ class MainActivity : AppCompatActivity() {
             service != null -> status.setText(R.string.status_running)
             else -> status.setText(R.string.status_starting)
         }
+
+        pingBanner.visibility = if (service?.isPinging == true) View.VISIBLE else View.GONE
 
         if (linked) {
             linkLabel.text = getString(R.string.service_paired, pairedName ?: "desktop")

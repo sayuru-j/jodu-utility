@@ -121,9 +121,14 @@ class DiscoveryService(
 
     fun requestPair(target: DiscoveryPayload) {
         val payload = localPair(target.deviceId)
-        sendTo(target.ip, EventTypes.PAIR_REQUEST, payload)
-        // Also broadcast so requests still arrive if unicast IP is stale.
-        broadcast(EventTypes.PAIR_REQUEST, payload)
+        // Fire a short burst — UDP pair packets are easily lost on some APs.
+        scope.launch(Dispatchers.IO) {
+            repeat(4) { attempt ->
+                sendTo(target.ip, EventTypes.PAIR_REQUEST, payload)
+                broadcast(EventTypes.PAIR_REQUEST, payload)
+                if (attempt < 3) delay(350)
+            }
+        }
     }
 
     fun respondPair(request: PairPayload, accepted: Boolean) {

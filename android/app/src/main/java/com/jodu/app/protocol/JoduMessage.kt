@@ -74,6 +74,7 @@ object JoduJson {
     val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
+        explicitNulls = false
         isLenient = true
     }
 

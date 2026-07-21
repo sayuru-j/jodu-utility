@@ -46,7 +46,7 @@ public sealed class ToastService
         }
         catch
         {
-            FallbackBalloon(title, $"Code: {code} — press Ctrl+Shift+C to copy");
+            FallbackBalloon?.Invoke(title, $"Code: {code} — press Ctrl+Shift+C to copy");
             CopyOtpRequested?.Invoke(code);
         }
     }
@@ -62,13 +62,11 @@ public sealed class ToastService
         }
         catch
         {
-            FallbackBalloon(title, body);
+            FallbackBalloon?.Invoke(title, body);
+            System.Diagnostics.Debug.WriteLine($"[JODU] {title}: {body}");
         }
     }
 
-    private static void FallbackBalloon(string title, string body)
-    {
-        // Last resort if WinRT toast APIs are unavailable.
-        System.Diagnostics.Debug.WriteLine($"[JODU] {title}: {body}");
-    }
+    /// <summary>Optional tray balloon when WinRT toasts are unavailable.</summary>
+    public Action<string, string>? FallbackBalloon { get; set; }
 }

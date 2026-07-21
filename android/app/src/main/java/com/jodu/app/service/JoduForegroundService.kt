@@ -177,7 +177,7 @@ class JoduForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_STOP_PING -> ping.stop()
+            ACTION_STOP_PING -> stopPing()
             ACTION_ACCEPT_PAIR -> acceptPair()
             ACTION_REJECT_PAIR -> rejectPair()
             ACTION_STOP_SERVICE -> {
@@ -206,6 +206,16 @@ class JoduForegroundService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    fun stopPing() {
+        ping.stop()
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(PING_NOTIFICATION_ID)
+        notifyUi()
+    }
+
+    val isPinging: Boolean
+        get() = ::ping.isInitialized && ping.isPinging
 
     fun sendOtp(payload: OtpPayload) {
         socket.send(EventTypes.OTP_DETECTED, payload)
@@ -358,18 +368,41 @@ class JoduForegroundService : Service() {
                     NotificationCompat.Builder(this, CHANNEL_ID)
                         .setSmallIcon(R.drawable.ic_stat_jodu)
                         .setContentTitle("JODU ping")
-                        .setContentText("Phone alert playing — tap to dismiss")
+                        .setContentText("Phone alert playing — tap Stop in the app")
                         .setContentIntent(
-                            PendingIntent.getService(
+                            PendingIntent.getActivity(
                                 this,
                                 2,
+                                Intent(this, MainActivity::class.java)
+                                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                            ),
+                        )
+                        .addAction(
+                            0,
+                            getString(R.string.action_stop_ping),
+                            PendingIntent.getService(
+                                this,
+                                5,
                                 Intent(this, JoduForegroundService::class.java).setAction(ACTION_STOP_PING),
                                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                             ),
                         )
-                        .setAutoCancel(true)
+                        .setOngoing(true)
+                        .setAutoCancel(false)
                         .build(),
                 )
+                runCatching {
+                    startActivity(
+                        Intent(this, MainActivity::class.java)
+                            .addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK or
+                                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT,
+                            ),
+                    )
+                }
+                notifyUi()
             }
 
             EventTypes.CLIPBOARD_UPDATE -> {

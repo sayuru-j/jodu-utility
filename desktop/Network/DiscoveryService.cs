@@ -190,7 +190,14 @@ public sealed class DiscoveryService : IDisposable
                     case EventTypes.PairRequest:
                     {
                         var req = msg.GetPayload<PairPayload>();
-                        if (req is null || req.TargetDeviceId != _deviceId) break;
+                        if (req is null) break;
+
+                        // Case-insensitive match; also accept blank target as "any desktop"
+                        // for older clients that omitted targetDeviceId.
+                        var targeted = string.IsNullOrWhiteSpace(req.TargetDeviceId)
+                            || string.Equals(req.TargetDeviceId, _deviceId, StringComparison.OrdinalIgnoreCase);
+                        if (!targeted) break;
+
                         req.FromIp = result.RemoteEndPoint.Address.ToString();
                         PairRequestReceived?.Invoke(req);
                         break;

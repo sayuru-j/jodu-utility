@@ -14,6 +14,10 @@ class PingAlertHelper(private val context: Context) {
     private var previousAlarmVolume: Int? = null
     private var focusRequest: AudioFocusRequest? = null
 
+    @Volatile
+    var isPinging: Boolean = false
+        private set
+
     @Synchronized
     fun start() {
         stop()
@@ -50,12 +54,14 @@ class PingAlertHelper(private val context: Context) {
             }
             it.play()
         }
+        isPinging = true
     }
 
     @Synchronized
     fun stop() {
         ringtone?.stop()
         ringtone = null
+        isPinging = false
 
         previousAlarmVolume?.let {
             audioManager.setStreamVolume(AudioManager.STREAM_ALARM, it, 0)

@@ -120,7 +120,7 @@
             app:layout_constraintTop_toBottomOf="@id/tagline" />
 
         <LinearLayout
-            android:id="@+id/pairBanner"
+            android:id="@+id/pingBanner"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -131,6 +131,46 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/brandRule">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.14"
+                android:text="@string/status_pinging"
+                android:textColor="@color/muted"
+                android:textSize="11sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/ping_body"
+                android:textColor="@color/fg"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnStopPing"
+                style="@style/Widget.Jodu.Button.Solid"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:text="@string/action_stop_ping" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/pairBanner"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_cell"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/pingBanner">
 
             <TextView
                 android:layout_width="wrap_content"
