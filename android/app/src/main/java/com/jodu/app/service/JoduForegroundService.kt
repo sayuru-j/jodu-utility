@@ -90,7 +90,11 @@ class JoduForegroundService : Service() {
         super.onCreate()
         instance = this
         createChannel()
-        startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.service_waiting)))
+        getSharedPreferences(PREFS, MODE_PRIVATE)
+            .edit()
+            .putBoolean(PREF_BRIDGE_ENABLED, true)
+            .apply()
+        startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.service_running)))
 
         clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
         media = MediaControllerBridge(this)
@@ -101,25 +105,21 @@ class JoduForegroundService : Service() {
             scope = scope,
             onMessage = ::onSocketMessage,
             onConnectionChanged = { connected ->
-                val text = if (connected) {
-                    getString(R.string.service_running)
-                } else {
-                    getString(R.string.service_waiting)
-                }
-                val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                nm.notify(NOTIFICATION_ID, buildNotification(text))
                 if (connected) {
                     pairStatus = "linked"
                     incomingPair = null
                     outgoingPairDeviceId = null
+                    clearPairRequestNotification()
                 } else if (pairStatus == "linked") {
                     pairStatus = "idle"
                 }
+                refreshOngoingNotification()
                 notifyUi()
             },
         )
 
         discovery = DiscoveryService(
+            context = this,
             scope = scope,
             deviceId = deviceId,
             deviceName = Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME)
@@ -130,9 +130,7 @@ class JoduForegroundService : Service() {
             },
             onPairRequest = { req ->
                 scope.launch(Dispatchers.Main) {
-                    incomingPair = req
-                    pairStatus = "incoming"
-                    notifyUi()
+                    presentIncomingPair(req)
                 }
             },
             onPairResponse = { res ->
@@ -150,6 +148,7 @@ class JoduForegroundService : Service() {
                         pairStatus = "accepted"
                         outgoingPairDeviceId = null
                         socket.connect(res.fromIp, res.wsPort)
+                        refreshOngoingNotification()
                     } else {
                         pairStatus = "rejected"
                         outgoingPairDeviceId = null
@@ -177,7 +176,13 @@ class JoduForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP_PING -> ping.stop()
+            ACTION_ACCEPT_PAIR -> acceptPair()
+            ACTION_REJECT_PAIR -> rejectPair()
             ACTION_STOP_SERVICE -> {
+                getSharedPreferences(PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(PREF_BRIDGE_ENABLED, false)
+                    .apply()
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -187,6 +192,7 @@ class JoduForegroundService : Service() {
 
     override fun onDestroy() {
         instance = null
+        clearPairRequestNotification()
         runCatching { unregisterReceiver(batteryReceiver) }
         clipboard.removePrimaryClipChangedListener(clipListener)
         discovery.stop()
@@ -233,7 +239,9 @@ class JoduForegroundService : Service() {
         discovery.respondPair(req, accepted = true)
         incomingPair = null
         pairStatus = "accepted"
+        clearPairRequestNotification()
         socket.connect(req.fromIp, req.wsPort)
+        refreshOngoingNotification()
         notifyUi()
     }
 
@@ -242,11 +250,86 @@ class JoduForegroundService : Service() {
         discovery.respondPair(req, accepted = false)
         incomingPair = null
         pairStatus = "idle"
+        clearPairRequestNotification()
+        notifyUi()
+    }
+
+    private fun presentIncomingPair(req: PairPayload) {
+        // Keep the latest request; bridge-on means we always surface it immediately.
+        incomingPair = req
+        pairStatus = "incoming"
+        showPairRequestNotification(req)
+        runCatching {
+            startActivity(
+                Intent(this, MainActivity::class.java)
+                    .addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT,
+                    ),
+            )
+        }
         notifyUi()
     }
 
     private fun notifyUi() {
         listeners.forEach { runCatching { it.invoke() } }
+    }
+
+    private fun refreshOngoingNotification() {
+        val text = when {
+            isLinked -> getString(R.string.service_paired, desktop?.deviceName ?: "desktop")
+            else -> getString(R.string.service_running)
+        }
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(NOTIFICATION_ID, buildNotification(text))
+    }
+
+    private fun showPairRequestNotification(req: PairPayload) {
+        val openIntent = Intent(this, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val open = PendingIntent.getActivity(
+            this,
+            1,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val accept = PendingIntent.getService(
+            this,
+            3,
+            Intent(this, JoduForegroundService::class.java).setAction(ACTION_ACCEPT_PAIR),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val decline = PendingIntent.getService(
+            this,
+            4,
+            Intent(this, JoduForegroundService::class.java).setAction(ACTION_REJECT_PAIR),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(
+            PAIR_NOTIFICATION_ID,
+            NotificationCompat.Builder(this, PAIR_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_jodu)
+                .setContentTitle(getString(R.string.pair_request_title))
+                .setContentText(getString(R.string.pair_request_body, req.fromDeviceName))
+                .setContentIntent(open)
+                .setFullScreenIntent(open, true)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(false)
+                .addAction(0, getString(R.string.action_decline), decline)
+                .addAction(0, getString(R.string.action_accept), accept)
+                .build(),
+        )
+    }
+
+    private fun clearPairRequestNotification() {
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(PAIR_NOTIFICATION_ID)
     }
 
     val pairedDesktop: DiscoveryPayload?
@@ -321,13 +404,23 @@ class JoduForegroundService : Service() {
 
     private fun createChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.service_channel),
-            NotificationManager.IMPORTANCE_LOW,
-        )
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        nm.createNotificationChannel(channel)
+        nm.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.service_channel),
+                NotificationManager.IMPORTANCE_LOW,
+            ),
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(
+                PAIR_CHANNEL_ID,
+                getString(R.string.pair_channel),
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = getString(R.string.pair_channel_desc)
+            },
+        )
     }
 
     private fun buildNotification(content: String): Notification {
@@ -351,10 +444,17 @@ class JoduForegroundService : Service() {
 
     companion object {
         const val CHANNEL_ID = "jodu_bridge"
+        const val PAIR_CHANNEL_ID = "jodu_pair"
         const val NOTIFICATION_ID = 1001
         const val PING_NOTIFICATION_ID = 1002
+        const val PAIR_NOTIFICATION_ID = 1003
         const val ACTION_STOP_PING = "com.jodu.app.STOP_PING"
         const val ACTION_STOP_SERVICE = "com.jodu.app.STOP_SERVICE"
+        const val ACTION_ACCEPT_PAIR = "com.jodu.app.ACCEPT_PAIR"
+        const val ACTION_REJECT_PAIR = "com.jodu.app.REJECT_PAIR"
+
+        const val PREFS = "jodu_prefs"
+        const val PREF_BRIDGE_ENABLED = "bridge_enabled"
 
         @Volatile
         var instance: JoduForegroundService? = null

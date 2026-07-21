@@ -506,7 +506,9 @@ public sealed class MainForm : Form
 
     private void UpdateTrayStatus()
     {
-        _tray.Text = _connected ? "JODU — connected" : "JODU — waiting";
+        _tray.Text = _connected
+            ? $"JODU — paired with {_peer?.DeviceName ?? "phone"}"
+            : "JODU — waiting";
     }
 
     private void ShowFromTray()

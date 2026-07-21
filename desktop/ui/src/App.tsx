@@ -39,7 +39,17 @@ export default function App() {
   const ssid = state.telemetry?.wifiSsid || '—'
   const device = state.telemetry?.deviceName || state.peer?.deviceName || 'phone'
   const playing = state.media?.isPlaying ?? false
-  const peers = state.peers ?? []
+  const peers = useMemo(() => {
+    const list = [...(state.peers ?? [])]
+    if (
+      state.connected &&
+      state.peer &&
+      !list.some((p) => p.deviceId === state.peer!.deviceId)
+    ) {
+      list.unshift(state.peer)
+    }
+    return list
+  }, [state.peers, state.peer, state.connected])
 
   async function onDrop(files: FileList | null) {
     setDragging(false)
@@ -74,7 +84,7 @@ export default function App() {
         </div>
         <div className={`title-link ${state.connected ? 'on' : ''}`}>
           <span className="glyph" aria-hidden />
-          <span>{state.connected ? device : 'waiting'}</span>
+          <span>{state.connected ? `paired · ${device}` : 'waiting'}</span>
         </div>
         <div className="window-controls">
           <button
@@ -140,7 +150,7 @@ export default function App() {
               <strong className="truncate">
                 {state.peer?.ip ? `${state.peer.ip}:${state.peer.httpPort}` : 'none'}
               </strong>
-              <span className="hint">{state.connected ? 'linked' : 'not linked'}</span>
+              <span className="hint">{state.connected ? 'paired' : 'not paired'}</span>
             </div>
             <div className="settings-row">
               <span className="label">docs</span>
@@ -207,7 +217,7 @@ export default function App() {
                 {state.pairStatus === 'outgoing'
                   ? 'waiting for accept…'
                   : state.connected
-                    ? 'linked'
+                    ? 'paired'
                     : 'tap to request pair'}
               </span>
             </div>
@@ -236,7 +246,7 @@ export default function App() {
                           </span>
                         </span>
                         <span className="device-action">
-                          {paired ? 'linked' : pending ? '…' : 'pair'}
+                          {paired ? 'paired' : pending ? '…' : 'pair'}
                         </span>
                       </button>
                     </li>

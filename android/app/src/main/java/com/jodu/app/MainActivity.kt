@@ -20,6 +20,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.jodu.app.protocol.DiscoveryPayload
 import com.jodu.app.service.JoduForegroundService
 
@@ -32,7 +33,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var devicesEmpty: TextView
     private lateinit var deviceList: LinearLayout
     private lateinit var rootContent: View
+    private lateinit var bridgeSwitch: MaterialSwitch
+    private lateinit var bridgeLabel: TextView
 
+    private var updatingSwitch = false
+    private val prefs by lazy { getSharedPreferences(JoduForegroundService.PREFS, MODE_PRIVATE) }
     private val uiListener = { runOnUiThread { refreshStatus() } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +53,8 @@ class MainActivity : AppCompatActivity() {
         pairFrom = findViewById(R.id.pairFrom)
         devicesEmpty = findViewById(R.id.devicesEmpty)
         deviceList = findViewById(R.id.deviceList)
+        bridgeSwitch = findViewById(R.id.bridgeSwitch)
+        bridgeLabel = findViewById(R.id.bridgeLabel)
 
         val basePad = dp(16)
         val sidePad = dp(20)
@@ -62,10 +69,18 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        findViewById<Button>(R.id.btnStart).setOnClickListener {
-            requestRuntimePermissions()
-            startBridge()
+        bridgeSwitch.setOnCheckedChangeListener { _, checked ->
+            if (updatingSwitch) return@setOnCheckedChangeListener
+            prefs.edit().putBoolean(JoduForegroundService.PREF_BRIDGE_ENABLED, checked).apply()
+            if (checked) {
+                requestRuntimePermissions()
+                startBridge()
+            } else {
+                stopBridge()
+            }
+            refreshStatus()
         }
+
         findViewById<Button>(R.id.btnNotifications).setOnClickListener {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
@@ -77,7 +92,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         requestRuntimePermissions()
-        startBridge()
+        if (prefs.getBoolean(JoduForegroundService.PREF_BRIDGE_ENABLED, true)) {
+            startBridge()
+        }
         refreshStatus()
     }
 
@@ -93,20 +110,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startBridge() {
+        ContextCompat.startForegroundService(
+            this,
+            Intent(this, JoduForegroundService::class.java),
+        )
+    }
+
+    private fun stopBridge() {
         val intent = Intent(this, JoduForegroundService::class.java)
-        ContextCompat.startForegroundService(this, intent)
-        status.setText(R.string.status_running)
-        refreshStatus()
+            .setAction(JoduForegroundService.ACTION_STOP_SERVICE)
+        startService(intent)
     }
 
     private fun refreshStatus() {
         val service = JoduForegroundService.instance
+        val bridgeEnabled = prefs.getBoolean(JoduForegroundService.PREF_BRIDGE_ENABLED, true)
         val linked = service?.isLinked == true
         val incoming = service?.incomingPair
-        val peers = service?.lanPeers.orEmpty()
+        val pairedDesktop = service?.pairedDesktop
+        val peers = mergePairedPeer(service?.lanPeers.orEmpty(), pairedDesktop, linked)
+        val pairedName = pairedDesktop?.deviceName
+
+        updatingSwitch = true
+        bridgeSwitch.isChecked = bridgeEnabled
+        updatingSwitch = false
+        bridgeLabel.setText(if (bridgeEnabled) R.string.bridge_on else R.string.bridge_off)
 
         when {
-            linked -> status.setText(R.string.status_linked)
+            linked -> status.text = getString(R.string.service_paired, pairedName ?: "desktop")
             incoming != null -> status.setText(R.string.status_incoming)
             service?.pairStatus == "outgoing" -> status.setText(R.string.status_outgoing)
             service != null -> status.setText(R.string.status_running)
@@ -114,16 +145,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (linked) {
-            linkLabel.setText(R.string.service_running)
+            linkLabel.text = getString(R.string.service_paired, pairedName ?: "desktop")
             linkLabel.setTextColor(ContextCompat.getColor(this, R.color.fg))
             linkGlyph.setBackgroundResource(R.drawable.bg_glyph_on)
         } else {
-            linkLabel.setText(R.string.service_waiting)
+            linkLabel.setText(
+                if (bridgeEnabled) R.string.service_running else R.string.service_waiting,
+            )
             linkLabel.setTextColor(ContextCompat.getColor(this, R.color.muted))
             linkGlyph.setBackgroundResource(R.drawable.bg_glyph)
         }
 
-        if (incoming != null) {
+        if (incoming != null && bridgeEnabled) {
             pairBanner.visibility = View.VISIBLE
             pairFrom.text = "${incoming.fromDeviceName}\n${incoming.fromIp}"
         } else {
@@ -133,10 +166,30 @@ class MainActivity : AppCompatActivity() {
         renderDevices(peers, service)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        refreshStatus()
+    }
+
+    private fun mergePairedPeer(
+        peers: List<DiscoveryPayload>,
+        paired: DiscoveryPayload?,
+        linked: Boolean,
+    ): List<DiscoveryPayload> {
+        if (!linked || paired == null) return peers
+        if (peers.any { it.deviceId == paired.deviceId }) return peers
+        return listOf(paired) + peers
+    }
+
     private fun renderDevices(peers: List<DiscoveryPayload>, service: JoduForegroundService?) {
+        val bridgeEnabled = prefs.getBoolean(JoduForegroundService.PREF_BRIDGE_ENABLED, true)
         deviceList.removeAllViews()
         if (peers.isEmpty()) {
             devicesEmpty.visibility = View.VISIBLE
+            devicesEmpty.setText(
+                if (bridgeEnabled) R.string.devices_empty else R.string.status_starting,
+            )
             return
         }
         devicesEmpty.visibility = View.GONE
@@ -144,9 +197,10 @@ class MainActivity : AppCompatActivity() {
         val linked = service?.isLinked == true
         val outgoing = service?.outgoingPairDeviceId
         val pairedId = service?.pairedDesktop?.deviceId
-        val busy = linked || service?.pairStatus == "outgoing"
+        val busy = linked || service?.pairStatus == "outgoing" || !bridgeEnabled
 
         peers.forEach { peer ->
+            val isPaired = peer.deviceId == pairedId && linked
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -156,8 +210,8 @@ class MainActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                 ).apply { bottomMargin = dp(8) }
-                isEnabled = !busy
-                alpha = if (busy && peer.deviceId != pairedId && peer.deviceId != outgoing) 0.45f else 1f
+                isEnabled = !busy || isPaired
+                alpha = if (busy && !isPaired && peer.deviceId != outgoing) 0.45f else 1f
                 setOnClickListener {
                     if (!busy) service?.requestPair(peer.deviceId)
                 }
@@ -166,7 +220,7 @@ class MainActivity : AppCompatActivity() {
             val dot = View(this).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(7), dp(7)).apply { marginEnd = dp(10) }
                 setBackgroundResource(
-                    if (peer.deviceId == pairedId) R.drawable.bg_glyph_on else R.drawable.bg_glyph,
+                    if (isPaired) R.drawable.bg_glyph_on else R.drawable.bg_glyph,
                 )
             }
 
@@ -192,7 +246,7 @@ class MainActivity : AppCompatActivity() {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.muted))
                 text = when {
-                    peer.deviceId == pairedId -> "linked"
+                    isPaired -> getString(R.string.label_paired)
                     peer.deviceId == outgoing -> "…"
                     else -> getString(R.string.action_pair)
                 }

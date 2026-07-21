@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using Jodu.Desktop.Protocol;
@@ -13,6 +14,7 @@ public sealed class DiscoveryService : IDisposable
     private readonly string _deviceId = Guid.NewGuid().ToString("N")[..12];
     private readonly string _deviceName;
     private readonly ConcurrentDictionary<string, (DiscoveryPayload Peer, DateTime Seen)> _peers = new();
+    private readonly ConcurrentDictionary<string, DateTime> _lastReply = new();
     private Task? _listenTask;
     private Task? _announceTask;
     private Task? _pruneTask;
@@ -47,6 +49,7 @@ public sealed class DiscoveryService : IDisposable
     {
         var payload = LocalPairPayload(target.DeviceId);
         SendTo(target.Ip, JoduMessage.Create(EventTypes.PairRequest, payload));
+        Broadcast(JoduMessage.Create(EventTypes.PairRequest, payload));
     }
 
     public void RespondPair(PairPayload request, bool accepted)
@@ -54,6 +57,78 @@ public sealed class DiscoveryService : IDisposable
         var payload = LocalPairPayload(request.FromDeviceId);
         payload.Accepted = accepted;
         SendTo(request.FromIp, JoduMessage.Create(EventTypes.PairResponse, payload));
+        Broadcast(JoduMessage.Create(EventTypes.PairResponse, payload));
+    }
+
+    private bool ShouldReply(string deviceId)
+    {
+        var now = DateTime.UtcNow;
+        if (_lastReply.TryGetValue(deviceId, out var last) && now - last < TimeSpan.FromSeconds(2))
+            return false;
+        _lastReply[deviceId] = now;
+        return true;
+    }
+
+    private DiscoveryPayload LocalDiscoveryPayload() => new()
+    {
+        DeviceId = _deviceId,
+        DeviceName = _deviceName,
+        Role = "desktop",
+        Ip = GetLocalIp(),
+        WsPort = JoduPorts.WebSocket,
+        HttpPort = JoduPorts.FileHttp
+    };
+
+    private void ReplyDiscovery(IPAddress address)
+    {
+        SendTo(address.ToString(), JoduMessage.Create(EventTypes.Discovery, LocalDiscoveryPayload()));
+    }
+
+    private void Broadcast(JoduMessage message)
+    {
+        var bytes = Encoding.UTF8.GetBytes(message.ToJson());
+        foreach (var endpoint in BroadcastEndpoints())
+        {
+            try
+            {
+                _udp.Send(bytes, bytes.Length, endpoint);
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+    }
+
+    private static IEnumerable<IPEndPoint> BroadcastEndpoints()
+    {
+        yield return new IPEndPoint(IPAddress.Broadcast, JoduPorts.Discovery);
+
+        foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (nic.OperationalStatus != OperationalStatus.Up) continue;
+            if (nic.NetworkInterfaceType is NetworkInterfaceType.Loopback) continue;
+
+            foreach (var addr in nic.GetIPProperties().UnicastAddresses)
+            {
+                if (addr.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                var broadcast = GetIPv4Broadcast(addr.Address, addr.IPv4Mask);
+                if (broadcast is not null)
+                    yield return new IPEndPoint(broadcast, JoduPorts.Discovery);
+            }
+        }
+    }
+
+    private static IPAddress? GetIPv4Broadcast(IPAddress address, IPAddress? mask)
+    {
+        if (mask is null) return null;
+        var ip = address.GetAddressBytes();
+        var m = mask.GetAddressBytes();
+        if (ip.Length != 4 || m.Length != 4) return null;
+        var b = new byte[4];
+        for (var i = 0; i < 4; i++)
+            b[i] = (byte)(ip[i] | ~m[i]);
+        return new IPAddress(b);
     }
 
     private PairPayload LocalPairPayload(string targetDeviceId) => new()
@@ -99,19 +174,24 @@ public sealed class DiscoveryService : IDisposable
                         var peer = msg.GetPayload<DiscoveryPayload>();
                         if (peer is null || peer.DeviceId == _deviceId) break;
                         if (!string.Equals(peer.Role, "android", StringComparison.OrdinalIgnoreCase)) break;
-                        if (string.IsNullOrWhiteSpace(peer.Ip))
-                            peer.Ip = result.RemoteEndPoint.Address.ToString();
+
+                        // Prefer the packet source IP — advertised IPs are often wrong on mobile.
+                        peer.Ip = result.RemoteEndPoint.Address.ToString();
 
                         _peers[peer.DeviceId] = (peer, DateTime.UtcNow);
                         PeersChanged?.Invoke(Peers);
+
+                        // Unicast our identity back — more reliable than phone receiving broadcasts.
+                        // Rate-limit so announce↔reply does not amplify into a tight loop.
+                        if (ShouldReply(peer.DeviceId))
+                            ReplyDiscovery(result.RemoteEndPoint.Address);
                         break;
                     }
                     case EventTypes.PairRequest:
                     {
                         var req = msg.GetPayload<PairPayload>();
                         if (req is null || req.TargetDeviceId != _deviceId) break;
-                        if (string.IsNullOrWhiteSpace(req.FromIp))
-                            req.FromIp = result.RemoteEndPoint.Address.ToString();
+                        req.FromIp = result.RemoteEndPoint.Address.ToString();
                         PairRequestReceived?.Invoke(req);
                         break;
                     }
@@ -119,6 +199,7 @@ public sealed class DiscoveryService : IDisposable
                     {
                         var res = msg.GetPayload<PairPayload>();
                         if (res is null || res.TargetDeviceId != _deviceId) break;
+                        res.FromIp = result.RemoteEndPoint.Address.ToString();
                         PairResponseReceived?.Invoke(res);
                         break;
                     }
@@ -137,23 +218,20 @@ public sealed class DiscoveryService : IDisposable
 
     private async Task AnnounceLoopAsync()
     {
-        var endpoint = new IPEndPoint(IPAddress.Broadcast, JoduPorts.Discovery);
         while (!_cts.IsCancellationRequested)
         {
             try
             {
-                var payload = new DiscoveryPayload
-                {
-                    DeviceId = _deviceId,
-                    DeviceName = _deviceName,
-                    Role = "desktop",
-                    Ip = GetLocalIp(),
-                    WsPort = JoduPorts.WebSocket,
-                    HttpPort = JoduPorts.FileHttp
-                };
+                var message = JoduMessage.Create(EventTypes.Discovery, LocalDiscoveryPayload());
+                Broadcast(message);
 
-                var bytes = Encoding.UTF8.GetBytes(JoduMessage.Create(EventTypes.Discovery, payload).ToJson());
-                await _udp.SendAsync(bytes, bytes.Length, endpoint);
+                // Unicast to known phones so Android still lists this desktop when
+                // broadcast/multicast is filtered by the AP or OS.
+                foreach (var entry in _peers.Values)
+                {
+                    if (!string.IsNullOrWhiteSpace(entry.Peer.Ip))
+                        SendTo(entry.Peer.Ip, message);
+                }
             }
             catch
             {
@@ -184,7 +262,7 @@ public sealed class DiscoveryService : IDisposable
                 break;
             }
 
-            var cutoff = DateTime.UtcNow - TimeSpan.FromSeconds(8);
+            var cutoff = DateTime.UtcNow - TimeSpan.FromSeconds(10);
             var removed = false;
             foreach (var (id, entry) in _peers)
             {
