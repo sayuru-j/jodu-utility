@@ -279,7 +279,44 @@ public sealed class MainForm : Form
                 if (WindowState != FormWindowState.Maximized)
                     WindowChrome.BeginDrag(Handle);
                 break;
+            case "OPEN_DOCS":
+                OpenDocsFolder();
+                break;
         }
+    }
+
+    private static void OpenDocsFolder()
+    {
+        var docs = FindDocsDirectory();
+        if (docs is null)
+        {
+            MessageBox.Show(
+                "Could not locate the docs folder.",
+                "JODU",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = docs,
+            UseShellExecute = true
+        });
+    }
+
+    private static string? FindDocsDirectory()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir.FullName, "docs");
+            if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "README.md")))
+                return candidate;
+            dir = dir.Parent;
+        }
+
+        return null;
     }
 
     private async Task PingPhoneAsync()

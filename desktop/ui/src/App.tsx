@@ -139,8 +139,19 @@ export default function App() {
               </strong>
               <span className="hint">{state.connected ? 'linked' : 'not linked'}</span>
             </div>
+            <div className="settings-row">
+              <span className="label">docs</span>
+              <strong>local guides</strong>
+              <span className="hint">architecture · protocol · setup</span>
+            </div>
           </div>
           <div className="settings-actions">
+            <button
+              type="button"
+              onClick={() => sendCommand({ action: 'OPEN_DOCS' })}
+            >
+              open docs
+            </button>
             <button
               type="button"
               disabled={!state.clipboardPreview}
