@@ -1,12 +1,16 @@
 .app {
   height: 100%;
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 1.25rem 1.35rem 1rem;
+  max-width: none;
+  margin: 0;
+  padding: 0 1.1rem 0.85rem;
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 0.9rem;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 0.75rem;
   animation: in 0.45s ease both;
+}
+
+.app.settings-open {
+  grid-template-rows: auto 1fr;
 }
 
 @keyframes in {
@@ -20,18 +24,273 @@
   }
 }
 
+.titlebar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  height: 2.6rem;
+  margin: 0 -1.1rem;
+  padding: 0 0.35rem 0 0.9rem;
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+  cursor: default;
+}
+
+.titlebar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: start;
+}
+
+.title-glyph {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--fg);
+}
+
+.title-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+}
+
+.title-link {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.title-link .glyph {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.title-link.on {
+  color: var(--fg);
+}
+
+.title-link.on .glyph {
+  background: var(--glyph);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
+  animation: blink 1.8s steps(1) infinite;
+}
+
+.window-controls {
+  justify-self: end;
+  display: flex;
+  height: 100%;
+}
+
+.window-controls button {
+  width: 2.75rem;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  transition: background 0.12s ease;
+}
+
+.window-controls button:hover,
+.window-controls button.active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.window-controls button.close:hover {
+  background: #e81123;
+}
+
+.ico {
+  display: block;
+  width: 10px;
+  height: 10px;
+  position: relative;
+}
+
+.ico-settings {
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--fg);
+  border-radius: 50%;
+}
+
+.ico-settings::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--fg);
+  transform: translate(-50%, -50%);
+}
+
+.ico-min {
+  border-bottom: 1px solid var(--fg);
+  height: 0;
+  width: 10px;
+  margin-top: 5px;
+}
+
+.ico-max {
+  border: 1px solid var(--fg);
+}
+
+.ico-restore {
+  border: 1px solid var(--fg);
+  box-shadow: 2px -2px 0 -1px var(--bg), 2px -2px 0 0 var(--fg);
+  width: 8px;
+  height: 8px;
+}
+
+.ico-close::before,
+.ico-close::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: 1px;
+  height: 10px;
+  background: var(--fg);
+}
+
+.ico-close::before {
+  transform: rotate(45deg);
+}
+
+.ico-close::after {
+  transform: rotate(-45deg);
+}
+
+.window-controls button.close:hover .ico-close::before,
+.window-controls button.close:hover .ico-close::after {
+  background: #fff;
+}
+
+.settings {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 1rem;
+  padding: 0.35rem 0 0.25rem;
+  animation: in 0.3s ease both;
+}
+
+.settings-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.65rem;
+}
+
+.settings-head h2 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.text-btn {
+  border: 0;
+  background: transparent;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  padding: 0.25rem 0;
+}
+
+.text-btn:hover {
+  color: var(--fg);
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  align-content: start;
+  min-height: 0;
+  overflow: auto;
+}
+
+.settings-row {
+  border: 1px solid var(--line);
+  padding: 0.85rem 0.95rem;
+  display: grid;
+  gap: 0.25rem;
+  background: rgba(17, 17, 17, 0.72);
+}
+
+.settings-row strong {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.settings-row .hint {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.settings-actions button {
+  border: 1px solid var(--line);
+  background: transparent;
+  height: 2.6rem;
+  padding: 0 0.95rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.settings-actions button:hover:not(:disabled) {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+
+.settings-actions .solid {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+
+.settings-actions .solid:hover:not(:disabled) {
+  background: transparent;
+  color: var(--fg);
+}
+
 .top {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
-  padding-bottom: 0.75rem;
+  padding-bottom: 0.55rem;
   border-bottom: 1px solid var(--line);
 }
 
 .brand-block h1 {
   margin: 0;
-  font-size: clamp(2.4rem, 7vw, 3.4rem);
+  font-size: clamp(2.1rem, 6vw, 3rem);
   font-weight: 700;
   letter-spacing: -0.06em;
   line-height: 0.9;
@@ -44,34 +303,6 @@
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--muted);
-}
-
-.link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: lowercase;
-  color: var(--muted);
-}
-
-.link .glyph {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 50%;
-  background: var(--muted);
-}
-
-.link.on {
-  color: var(--fg);
-}
-
-.link.on .glyph {
-  background: var(--glyph);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
-  animation: blink 1.8s steps(1) infinite;
 }
 
 @keyframes blink {
@@ -284,7 +515,8 @@
     overflow: auto;
   }
 
-  .grid {
+  .grid,
+  .settings-grid {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
   }

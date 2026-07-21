@@ -29,6 +29,7 @@ export type AppState = {
   clipboardPreview?: string
   httpPort: number
   wsPort: number
+  maximized?: boolean
 }
 
 type UiCommand = {

@@ -33,7 +33,13 @@ public sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(720, 520);
         ShowInTaskbar = true;
+        FormBorderStyle = FormBorderStyle.None;
+        BackColor = Color.FromArgb(10, 10, 10);
+        DoubleBuffered = true;
+        Padding = new Padding(6);
 
+        _webView.Dock = DockStyle.Fill;
+        _webView.DefaultBackgroundColor = Color.FromArgb(10, 10, 10);
         Controls.Add(_webView);
 
         _tray = new NotifyIcon
@@ -47,6 +53,37 @@ public sealed class MainForm : Form
 
         _bridge = new UiBridge(this);
         WireServices();
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        WindowChrome.TryEnableRoundedCorners(Handle);
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WindowChrome.WmNchittest && WindowState == FormWindowState.Normal)
+        {
+            var x = (short)(m.LParam.ToInt32() & 0xFFFF);
+            var y = (short)((m.LParam.ToInt32() >> 16) & 0xFFFF);
+            var client = PointToClient(new Point(x, y));
+            var hit = WindowChrome.HitTest(this, client);
+            if (hit != WindowChrome.HtClient)
+            {
+                m.Result = hit;
+                return;
+            }
+        }
+
+        base.WndProc(ref m);
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        if (IsHandleCreated && _webView.CoreWebView2 is not null)
+            PushUiState();
     }
 
     private ContextMenuStrip BuildTrayMenu()
@@ -226,6 +263,22 @@ public sealed class MainForm : Form
             case "GET_STATE":
                 PushUiState();
                 break;
+            case "WINDOW_MINIMIZE":
+                WindowState = FormWindowState.Minimized;
+                break;
+            case "WINDOW_MAXIMIZE":
+                WindowState = WindowState == FormWindowState.Maximized
+                    ? FormWindowState.Normal
+                    : FormWindowState.Maximized;
+                PushUiState();
+                break;
+            case "WINDOW_CLOSE":
+                Hide();
+                break;
+            case "WINDOW_DRAG":
+                if (WindowState != FormWindowState.Maximized)
+                    WindowChrome.BeginDrag(Handle);
+                break;
         }
     }
 
@@ -287,7 +340,8 @@ public sealed class MainForm : Form
             media = _media,
             clipboardPreview = Truncate(_clipboard.MobileClipboard, 80),
             httpPort = JoduPorts.FileHttp,
-            wsPort = JoduPorts.WebSocket
+            wsPort = JoduPorts.WebSocket,
+            maximized = WindowState == FormWindowState.Maximized
         };
 
         var json = JsonSerializer.Serialize(state, JoduMessage.JsonOptions);
