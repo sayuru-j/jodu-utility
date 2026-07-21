@@ -9,6 +9,7 @@ Index for project documentation.
 | [Desktop](desktop.md) | .NET host, Vite UI, run scripts |
 | [Android](android.md) | Kotlin app, permissions, services |
 | [Troubleshooting](troubleshooting.md) | Common setup and LAN issues |
+| [Roadmap](roadmap.md) | To implement — planned features |
 
 ## Repo layout
 

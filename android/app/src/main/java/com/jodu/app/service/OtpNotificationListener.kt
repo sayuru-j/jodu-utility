@@ -8,6 +8,7 @@ import android.service.notification.StatusBarNotification
 import com.jodu.app.protocol.EventTypes
 import com.jodu.app.protocol.NotificationPayload
 import com.jodu.app.protocol.OtpPayload
+import com.jodu.app.util.NotificationImageHelper
 import com.jodu.app.util.OtpParser
 
 class OtpNotificationListener : NotificationListenerService() {
@@ -28,7 +29,8 @@ class OtpNotificationListener : NotificationListenerService() {
                 ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)
             )?.toString()?.trim()
 
-        if (title.isNullOrBlank() && text.isNullOrBlank()) return
+        val thumbnail = NotificationImageHelper.extractThumbnailBase64(this, notification)
+        if (title.isNullOrBlank() && text.isNullOrBlank() && thumbnail.isNullOrBlank()) return
 
         val appName = resolveAppName(sbn.packageName)
         JoduForegroundService.instance?.sendPhoneNotification(
@@ -39,6 +41,7 @@ class OtpNotificationListener : NotificationListenerService() {
                 text = text,
                 key = sbn.key,
                 postedAt = sbn.postTime,
+                imageBase64 = thumbnail,
             ),
         )
 

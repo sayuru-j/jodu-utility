@@ -45,6 +45,8 @@ data class NotificationPayload(
     val text: String? = null,
     val key: String? = null,
     @SerialName("postedAt") val postedAt: Long = 0L,
+    /** JPEG thumbnail, base64 (no data: prefix). */
+    @SerialName("imageBase64") val imageBase64: String? = null,
 )
 
 @Serializable

@@ -12,12 +12,14 @@ public sealed class MainForm : Form
 {
     private readonly WebView2 _webView = new() { Dock = DockStyle.Fill };
     private readonly NotifyIcon _tray;
+    private readonly Icon _appIcon;
     private readonly DiscoveryService _discovery = new();
     private readonly WebSocketHub _hub = new();
     private readonly FileTransferServer _files = new();
     private readonly HotkeyService _hotkey = new();
     private readonly ToastService _toasts = new();
     private readonly NotificationPopupService _phoneToasts = new();
+    private NotificationTonePlayer? _notificationTone;
     private readonly ClipboardBridge _clipboard = new();
     private readonly UiBridge _bridge;
 
@@ -45,6 +47,9 @@ public sealed class MainForm : Form
         DoubleBuffered = true;
         Padding = new Padding(6);
 
+        _appIcon = AppIcons.Load();
+        Icon = _appIcon;
+
         _webView.Dock = DockStyle.Fill;
         _webView.DefaultBackgroundColor = Color.FromArgb(10, 10, 10);
         Controls.Add(_webView);
@@ -53,7 +58,7 @@ public sealed class MainForm : Form
         {
             Text = "JODU",
             Visible = true,
-            Icon = SystemIcons.Application
+            Icon = (Icon)_appIcon.Clone()
         };
         _tray.DoubleClick += (_, _) => ShowFromTray();
         _tray.ContextMenuStrip = BuildTrayMenu();
@@ -71,6 +76,10 @@ public sealed class MainForm : Form
         };
 
         _bridge = new UiBridge(this);
+        _notificationTone = new NotificationTonePlayer(
+            () => _webView.CoreWebView2,
+            ResolveUiUrl);
+        _phoneToasts.PlayTone = () => _notificationTone.Play();
         WireServices();
     }
 
@@ -615,7 +624,7 @@ public sealed class MainForm : Form
                         var app = string.IsNullOrWhiteSpace(note.AppName)
                             ? note.PackageName
                             : note.AppName!;
-                        _phoneToasts.ShowPhoneNotification(app, note.Title, note.Text);
+                        _phoneToasts.ShowPhoneNotification(app, note.Title, note.Text, note.ImageBase64);
                     }
                     break;
                 }
@@ -749,6 +758,8 @@ public sealed class MainForm : Form
         if (disposing)
         {
             _tray.Dispose();
+            if (!ReferenceEquals(_appIcon, SystemIcons.Application))
+                _appIcon.Dispose();
             _discovery.Dispose();
             _hub.Dispose();
             _files.Dispose();

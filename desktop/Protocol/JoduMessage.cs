@@ -73,6 +73,8 @@ public sealed class NotificationPayload
     public string? Text { get; set; }
     public string? Key { get; set; }
     public long PostedAt { get; set; }
+    /// <summary>JPEG thumbnail, base64 (no data: prefix).</summary>
+    public string? ImageBase64 { get; set; }
 }
 
 public sealed class MediaControlPayload

@@ -68,7 +68,8 @@ Every frame is UTF-8 JSON:
     "title": "Alex",
     "text": "On my way",
     "key": "0|com.whatsapp|1|null|10123",
-    "postedAt": 1710000000000
+    "postedAt": 1710000000000,
+    "imageBase64": "<optional JPEG thumbnail, base64>"
   }
 }
 ```
