@@ -5,6 +5,7 @@ public static class EventTypes
     public const string ClipboardUpdate = "CLIPBOARD_UPDATE";
     public const string Telemetry = "TELEMETRY";
     public const string OtpDetected = "OTP_DETECTED";
+    public const string Notification = "NOTIFICATION";
     public const string MediaControl = "MEDIA_CONTROL";
     public const string MediaState = "MEDIA_STATE";
     public const string PingDevice = "PING_DEVICE";

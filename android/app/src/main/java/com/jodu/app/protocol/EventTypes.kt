@@ -4,6 +4,7 @@ object EventTypes {
     const val CLIPBOARD_UPDATE = "CLIPBOARD_UPDATE"
     const val TELEMETRY = "TELEMETRY"
     const val OTP_DETECTED = "OTP_DETECTED"
+    const val NOTIFICATION = "NOTIFICATION"
     const val MEDIA_CONTROL = "MEDIA_CONTROL"
     const val MEDIA_STATE = "MEDIA_STATE"
     const val PING_DEVICE = "PING_DEVICE"

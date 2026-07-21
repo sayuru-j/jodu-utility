@@ -21,6 +21,7 @@ Every frame is UTF-8 JSON:
 | `TELEMETRY` | phone → desktop | Battery, charging, Wi-Fi SSID |
 | `CLIPBOARD_UPDATE` | either | Synced clipboard text |
 | `OTP_DETECTED` | phone → desktop | Parsed OTP code |
+| `NOTIFICATION` | phone → desktop | Phone status-bar notification mirror |
 | `MEDIA_CONTROL` | desktop → phone | `PLAY` / `PAUSE` / `NEXT` / `PREVIOUS` / volume |
 | `MEDIA_STATE` | phone → desktop | Title, artist, playing, volume |
 | `PING_DEVICE` | desktop → phone | Trigger phone alert tone |
@@ -53,6 +54,21 @@ Every frame is UTF-8 JSON:
 {
   "type": "OTP_DETECTED",
   "payload": { "code": "482193", "sender": "com.bank.app", "body": "..." }
+}
+```
+
+**Notification**
+```json
+{
+  "type": "NOTIFICATION",
+  "payload": {
+    "packageName": "com.whatsapp",
+    "appName": "WhatsApp",
+    "title": "Alex",
+    "text": "On my way",
+    "key": "0|com.whatsapp|1|null|10123",
+    "postedAt": 1710000000000
+  }
 }
 ```
 

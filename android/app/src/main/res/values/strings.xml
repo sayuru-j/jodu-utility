@@ -21,7 +21,7 @@
     <string name="pair_request_title">Pair request</string>
     <string name="pair_request_body">%1$s wants to pair with this phone</string>
     <string name="label_paired">paired</string>
-    <string name="action_notifications">otp notification access</string>
+    <string name="action_notifications">notification access</string>
     <string name="status_pinging">ping alert</string>
     <string name="ping_body">desktop is pinging this phone</string>
     <string name="action_stop_ping">stop ping</string>

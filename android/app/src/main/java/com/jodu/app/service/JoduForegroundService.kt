@@ -31,6 +31,7 @@ import com.jodu.app.protocol.JoduMessage
 import com.jodu.app.protocol.JoduPorts
 import com.jodu.app.protocol.MediaControlPayload
 import com.jodu.app.protocol.MediaStatePayload
+import com.jodu.app.protocol.NotificationPayload
 import com.jodu.app.protocol.OtpPayload
 import com.jodu.app.protocol.PairPayload
 import com.jodu.app.protocol.TelemetryPayload
@@ -249,9 +250,28 @@ class JoduForegroundService : Service() {
     }
 
     fun sendOtp(payload: OtpPayload) {
+        if (!isLinked) return
         socket.send(EventTypes.OTP_DETECTED, payload)
         lastClip = payload.code
     }
+
+    fun sendPhoneNotification(payload: NotificationPayload) {
+        if (!isLinked) return
+        val key = payload.key ?: "${payload.packageName}:${payload.title}:${payload.text}"
+        val now = System.currentTimeMillis()
+        synchronized(notificationDedupe) {
+            val last = notificationDedupe[key]
+            if (last != null && now - last < 1_500) return
+            notificationDedupe[key] = now
+            if (notificationDedupe.size > 200) {
+                val cutoff = now - 60_000
+                notificationDedupe.entries.removeIf { it.value < cutoff }
+            }
+        }
+        socket.send(EventTypes.NOTIFICATION, payload)
+    }
+
+    private val notificationDedupe = LinkedHashMap<String, Long>()
 
     fun addUiListener(listener: () -> Unit) {
         listeners += listener

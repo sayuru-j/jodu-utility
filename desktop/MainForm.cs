@@ -17,6 +17,7 @@ public sealed class MainForm : Form
     private readonly FileTransferServer _files = new();
     private readonly HotkeyService _hotkey = new();
     private readonly ToastService _toasts = new();
+    private readonly NotificationPopupService _phoneToasts = new();
     private readonly ClipboardBridge _clipboard = new();
     private readonly UiBridge _bridge;
 
@@ -527,6 +528,19 @@ public sealed class MainForm : Form
                     break;
                 }
 
+                case EventTypes.Notification:
+                {
+                    var note = message.GetPayload<NotificationPayload>();
+                    if (note is not null)
+                    {
+                        var app = string.IsNullOrWhiteSpace(note.AppName)
+                            ? note.PackageName
+                            : note.AppName!;
+                        _phoneToasts.ShowPhoneNotification(app, note.Title, note.Text);
+                    }
+                    break;
+                }
+
                 case EventTypes.MediaState:
                     _media = message.GetPayload<MediaStatePayload>();
                     PushUiState();
@@ -602,6 +616,7 @@ public sealed class MainForm : Form
         _hub.Dispose();
         _files.Dispose();
         _hotkey.Dispose();
+        _phoneToasts.Dispose();
         Application.Exit();
     }
 
@@ -614,6 +629,7 @@ public sealed class MainForm : Form
             _hub.Dispose();
             _files.Dispose();
             _hotkey.Dispose();
+            _phoneToasts.Dispose();
             _webView.Dispose();
         }
 

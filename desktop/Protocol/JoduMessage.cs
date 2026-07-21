@@ -65,6 +65,16 @@ public sealed class OtpPayload
     public string? Body { get; set; }
 }
 
+public sealed class NotificationPayload
+{
+    public string PackageName { get; set; } = string.Empty;
+    public string? AppName { get; set; }
+    public string? Title { get; set; }
+    public string? Text { get; set; }
+    public string? Key { get; set; }
+    public long PostedAt { get; set; }
+}
+
 public sealed class MediaControlPayload
 {
     public string Action { get; set; } = string.Empty;

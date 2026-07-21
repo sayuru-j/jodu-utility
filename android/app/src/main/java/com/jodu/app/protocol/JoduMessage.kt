@@ -38,6 +38,16 @@ data class OtpPayload(
 )
 
 @Serializable
+data class NotificationPayload(
+    @SerialName("packageName") val packageName: String,
+    @SerialName("appName") val appName: String? = null,
+    val title: String? = null,
+    val text: String? = null,
+    val key: String? = null,
+    @SerialName("postedAt") val postedAt: Long = 0L,
+)
+
+@Serializable
 data class MediaControlPayload(
     val action: String,
 )
