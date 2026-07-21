@@ -35,7 +35,7 @@ public sealed class MainForm : Form
         Width = 960;
         Height = 680;
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(720, 520);
+        MinimumSize = new Size(480, 420);
         ShowInTaskbar = true;
         FormBorderStyle = FormBorderStyle.None;
         BackColor = Color.FromArgb(10, 10, 10);

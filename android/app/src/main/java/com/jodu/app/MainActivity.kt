@@ -16,6 +16,10 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import com.jodu.app.protocol.DiscoveryPayload
 import com.jodu.app.service.JoduForegroundService
 
@@ -27,13 +31,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pairFrom: TextView
     private lateinit var devicesEmpty: TextView
     private lateinit var deviceList: LinearLayout
+    private lateinit var rootContent: View
 
     private val uiListener = { runOnUiThread { refreshStatus() } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
 
+        rootContent = findViewById(R.id.rootContent)
         status = findViewById(R.id.status)
         linkLabel = findViewById(R.id.linkLabel)
         linkGlyph = findViewById(R.id.linkGlyph)
@@ -41,6 +48,19 @@ class MainActivity : AppCompatActivity() {
         pairFrom = findViewById(R.id.pairFrom)
         devicesEmpty = findViewById(R.id.devicesEmpty)
         deviceList = findViewById(R.id.deviceList)
+
+        val basePad = dp(16)
+        val sidePad = dp(20)
+        ViewCompat.setOnApplyWindowInsetsListener(rootContent) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.updatePadding(
+                left = sidePad + bars.left,
+                top = basePad + bars.top,
+                right = sidePad + bars.right,
+                bottom = basePad + bars.bottom,
+            )
+            insets
+        }
 
         findViewById<Button>(R.id.btnStart).setOnClickListener {
             requestRuntimePermissions()

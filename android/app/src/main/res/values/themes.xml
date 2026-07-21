@@ -4,7 +4,7 @@
         <item name="colorPrimary">@color/fg</item>
         <item name="colorOnPrimary">@color/bg</item>
         <item name="colorSecondary">@color/muted</item>
-        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@color/bg</item>
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:windowLightStatusBar">false</item>
