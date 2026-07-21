@@ -8,6 +8,8 @@ object EventTypes {
     const val MEDIA_STATE = "MEDIA_STATE"
     const val PING_DEVICE = "PING_DEVICE"
     const val DISCOVERY = "DISCOVERY"
+    const val PAIR_REQUEST = "PAIR_REQUEST"
+    const val PAIR_RESPONSE = "PAIR_RESPONSE"
 }
 
 object MediaActions {

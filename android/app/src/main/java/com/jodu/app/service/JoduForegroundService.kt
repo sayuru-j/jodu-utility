@@ -32,6 +32,7 @@ import com.jodu.app.protocol.MediaControlPayload
 import com.jodu.app.protocol.MediaStatePayload
 import com.jodu.app.protocol.OtpPayload
 import com.jodu.app.protocol.TelemetryPayload
+import com.jodu.app.protocol.PairPayload
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,6 +41,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 
 class JoduForegroundService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -54,6 +56,16 @@ class JoduForegroundService : Service() {
 
     private var desktop: DiscoveryPayload? = null
     private var lastClip: String? = null
+    @Volatile var lanPeers: List<DiscoveryPayload> = emptyList()
+        private set
+    @Volatile var incomingPair: PairPayload? = null
+        private set
+    @Volatile var outgoingPairDeviceId: String? = null
+        private set
+    @Volatile var pairStatus: String = "idle"
+        private set
+
+    private val listeners = CopyOnWriteArrayList<() -> Unit>()
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -96,6 +108,14 @@ class JoduForegroundService : Service() {
                 }
                 val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
                 nm.notify(NOTIFICATION_ID, buildNotification(text))
+                if (connected) {
+                    pairStatus = "linked"
+                    incomingPair = null
+                    outgoingPairDeviceId = null
+                } else if (pairStatus == "linked") {
+                    pairStatus = "idle"
+                }
+                notifyUi()
             },
         )
 
@@ -104,10 +124,38 @@ class JoduForegroundService : Service() {
             deviceId = deviceId,
             deviceName = Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME)
                 ?: Build.MODEL,
-            onDesktopFound = { peer ->
-                if (desktop?.deviceId == peer.deviceId && socket.isConnected) return@DiscoveryService
-                desktop = peer
-                socket.connect(peer.ip, peer.wsPort)
+            onPeersChanged = { peers ->
+                lanPeers = peers
+                notifyUi()
+            },
+            onPairRequest = { req ->
+                scope.launch(Dispatchers.Main) {
+                    incomingPair = req
+                    pairStatus = "incoming"
+                    notifyUi()
+                }
+            },
+            onPairResponse = { res ->
+                scope.launch(Dispatchers.Main) {
+                    if (outgoingPairDeviceId == null || res.fromDeviceId != outgoingPairDeviceId) return@launch
+                    if (res.accepted == true) {
+                        desktop = DiscoveryPayload(
+                            deviceId = res.fromDeviceId,
+                            deviceName = res.fromDeviceName,
+                            role = res.fromRole,
+                            ip = res.fromIp,
+                            wsPort = res.wsPort,
+                            httpPort = res.httpPort,
+                        )
+                        pairStatus = "accepted"
+                        outgoingPairDeviceId = null
+                        socket.connect(res.fromIp, res.wsPort)
+                    } else {
+                        pairStatus = "rejected"
+                        outgoingPairDeviceId = null
+                    }
+                    notifyUi()
+                }
             },
         )
 
@@ -155,6 +203,54 @@ class JoduForegroundService : Service() {
         socket.send(EventTypes.OTP_DETECTED, payload)
         lastClip = payload.code
     }
+
+    fun addUiListener(listener: () -> Unit) {
+        listeners += listener
+    }
+
+    fun removeUiListener(listener: () -> Unit) {
+        listeners -= listener
+    }
+
+    fun requestPair(deviceId: String) {
+        val target = lanPeers.firstOrNull { it.deviceId == deviceId } ?: return
+        outgoingPairDeviceId = deviceId
+        pairStatus = "outgoing"
+        discovery.requestPair(target)
+        notifyUi()
+    }
+
+    fun acceptPair() {
+        val req = incomingPair ?: return
+        desktop = DiscoveryPayload(
+            deviceId = req.fromDeviceId,
+            deviceName = req.fromDeviceName,
+            role = req.fromRole,
+            ip = req.fromIp,
+            wsPort = req.wsPort,
+            httpPort = req.httpPort,
+        )
+        discovery.respondPair(req, accepted = true)
+        incomingPair = null
+        pairStatus = "accepted"
+        socket.connect(req.fromIp, req.wsPort)
+        notifyUi()
+    }
+
+    fun rejectPair() {
+        val req = incomingPair ?: return
+        discovery.respondPair(req, accepted = false)
+        incomingPair = null
+        pairStatus = "idle"
+        notifyUi()
+    }
+
+    private fun notifyUi() {
+        listeners.forEach { runCatching { it.invoke() } }
+    }
+
+    val pairedDesktop: DiscoveryPayload?
+        get() = desktop
 
     private fun onSocketMessage(message: JoduMessage) {
         when (message.type) {

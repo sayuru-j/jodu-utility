@@ -85,3 +85,15 @@ public sealed class DiscoveryPayload
     public int WsPort { get; set; } = JoduPorts.WebSocket;
     public int HttpPort { get; set; } = JoduPorts.FileHttp;
 }
+
+public sealed class PairPayload
+{
+    public string FromDeviceId { get; set; } = string.Empty;
+    public string FromDeviceName { get; set; } = string.Empty;
+    public string FromRole { get; set; } = "desktop";
+    public string FromIp { get; set; } = string.Empty;
+    public int WsPort { get; set; } = JoduPorts.WebSocket;
+    public int HttpPort { get; set; } = JoduPorts.FileHttp;
+    public string TargetDeviceId { get; set; } = string.Empty;
+    public bool? Accepted { get; set; }
+}

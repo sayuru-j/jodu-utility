@@ -58,6 +58,18 @@ data class DiscoveryPayload(
     @SerialName("httpPort") val httpPort: Int = JoduPorts.FILE_HTTP,
 )
 
+@Serializable
+data class PairPayload(
+    @SerialName("fromDeviceId") val fromDeviceId: String,
+    @SerialName("fromDeviceName") val fromDeviceName: String,
+    @SerialName("fromRole") val fromRole: String,
+    @SerialName("fromIp") val fromIp: String,
+    @SerialName("wsPort") val wsPort: Int = JoduPorts.WEB_SOCKET,
+    @SerialName("httpPort") val httpPort: Int = JoduPorts.FILE_HTTP,
+    @SerialName("targetDeviceId") val targetDeviceId: String,
+    val accepted: Boolean? = null,
+)
+
 object JoduJson {
     val json = Json {
         ignoreUnknownKeys = true

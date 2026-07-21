@@ -22,14 +22,16 @@ flowchart LR
 | `desktop/ui/` | Single-page React UI (status, media, files, ping, settings) |
 | `android/` | Foreground service, clipboard, OTP listener, media, telemetry, ping |
 
-## Discovery
+## Discovery & pairing
 
-Both sides broadcast UDP JSON `DISCOVERY` packets on port **19283**.
+Both sides broadcast UDP `DISCOVERY` packets on port **19283** and show found peers in the UI.
 
-- Desktop role: `desktop`
-- Phone role: `android`
+Either device can tap a peer to send `PAIR_REQUEST`. The other device accepts or declines with `PAIR_RESPONSE`.
 
-When the phone sees a desktop peer, it opens a WebSocket client to `ws://{ip}:{wsPort}/`.
+After accept:
+
+1. Phone opens WebSocket client to the desktop (`ws://{ip}:19284/`)
+2. Clipboard / telemetry / media / OTP / ping flow over that socket
 
 ## Runtime channels
 

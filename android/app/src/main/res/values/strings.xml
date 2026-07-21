@@ -6,13 +6,20 @@
     <string name="service_running">linked over lan</string>
     <string name="service_waiting">waiting for desktop</string>
     <string name="status_starting">starting bridge…</string>
-    <string name="status_running">bridge running · looking for desktop</string>
+    <string name="status_running">scanning lan for desktops</string>
     <string name="status_linked">linked · keep notification access on for otp</string>
+    <string name="status_outgoing">waiting for desktop to accept…</string>
+    <string name="status_incoming">desktop wants to pair</string>
     <string name="action_start">start bridge</string>
     <string name="action_notifications">otp notification access</string>
-    <string name="hint_bridge">clipboard · otp · media · files · ping stay live while the service is active</string>
+    <string name="action_accept">accept</string>
+    <string name="action_decline">decline</string>
+    <string name="action_pair">pair</string>
+    <string name="hint_bridge">tap a desktop below to send a pair request · either device can start</string>
     <string name="label_status">status</string>
+    <string name="label_devices">devices on lan</string>
     <string name="label_bridge">bridge</string>
     <string name="label_access">access</string>
+    <string name="devices_empty">scanning for desktops…</string>
     <string name="ports_footer">ws 19284 · http 19286 · discovery 19283</string>
 </resources>

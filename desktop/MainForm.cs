@@ -23,6 +23,10 @@ public sealed class MainForm : Form
     private TelemetryPayload? _telemetry;
     private MediaStatePayload? _media;
     private DiscoveryPayload? _peer;
+    private IReadOnlyList<DiscoveryPayload> _lanPeers = Array.Empty<DiscoveryPayload>();
+    private PairPayload? _incomingPair;
+    private string? _outgoingPairDeviceId;
+    private string _pairStatus = "idle";
     private bool _connected;
 
     public MainForm()
@@ -113,15 +117,66 @@ public sealed class MainForm : Form
             BeginInvoke(() => _clipboard.CopyText(code));
         };
 
-        _discovery.PeerDiscovered += peer =>
+        _discovery.PeersChanged += peers =>
         {
-            _peer = peer;
-            PushUiState();
+            BeginInvoke(() =>
+            {
+                _lanPeers = peers;
+                PushUiState();
+            });
+        };
+
+        _discovery.PairRequestReceived += req =>
+        {
+            BeginInvoke(() =>
+            {
+                _incomingPair = req;
+                _pairStatus = "incoming";
+                ShowFromTray();
+                _toasts.ShowInfo("Pair request", $"{req.FromDeviceName} wants to pair");
+                PushUiState();
+            });
+        };
+
+        _discovery.PairResponseReceived += res =>
+        {
+            BeginInvoke(() =>
+            {
+                if (_outgoingPairDeviceId is null || res.FromDeviceId != _outgoingPairDeviceId)
+                    return;
+
+                if (res.Accepted == true)
+                {
+                    _peer = new DiscoveryPayload
+                    {
+                        DeviceId = res.FromDeviceId,
+                        DeviceName = res.FromDeviceName,
+                        Role = res.FromRole,
+                        Ip = res.FromIp,
+                        WsPort = res.WsPort,
+                        HttpPort = res.HttpPort
+                    };
+                    _pairStatus = "accepted";
+                    _outgoingPairDeviceId = null;
+                    _toasts.ShowInfo("JODU", $"Paired with {res.FromDeviceName}");
+                }
+                else
+                {
+                    _pairStatus = "rejected";
+                    _outgoingPairDeviceId = null;
+                    _toasts.ShowInfo("JODU", "Pair request declined");
+                }
+
+                PushUiState();
+            });
         };
 
         _hub.ClientConnected += () =>
         {
             _connected = true;
+            _pairStatus = "linked";
+            _incomingPair = null;
+            _outgoingPairDeviceId = null;
             UpdateTrayStatus();
             PushUiState();
         };
@@ -129,6 +184,8 @@ public sealed class MainForm : Form
         _hub.ClientDisconnected += () =>
         {
             _connected = _hub.HasClients;
+            if (!_connected && _pairStatus == "linked")
+                _pairStatus = "idle";
             UpdateTrayStatus();
             PushUiState();
         };
@@ -282,7 +339,55 @@ public sealed class MainForm : Form
             case "OPEN_DOCS":
                 OpenDocsFolder();
                 break;
+            case "PAIR_REQUEST":
+                if (!string.IsNullOrWhiteSpace(cmd.Value))
+                    RequestPair(cmd.Value!);
+                break;
+            case "PAIR_ACCEPT":
+                AcceptIncomingPair();
+                break;
+            case "PAIR_REJECT":
+                RejectIncomingPair();
+                break;
         }
+    }
+
+    private void RequestPair(string deviceId)
+    {
+        var target = _lanPeers.FirstOrDefault(p => p.DeviceId == deviceId);
+        if (target is null) return;
+        _outgoingPairDeviceId = deviceId;
+        _pairStatus = "outgoing";
+        _discovery.RequestPair(target);
+        PushUiState();
+    }
+
+    private void AcceptIncomingPair()
+    {
+        if (_incomingPair is null) return;
+        var req = _incomingPair;
+        _peer = new DiscoveryPayload
+        {
+            DeviceId = req.FromDeviceId,
+            DeviceName = req.FromDeviceName,
+            Role = req.FromRole,
+            Ip = req.FromIp,
+            WsPort = req.WsPort,
+            HttpPort = req.HttpPort
+        };
+        _discovery.RespondPair(req, accepted: true);
+        _incomingPair = null;
+        _pairStatus = "accepted";
+        PushUiState();
+    }
+
+    private void RejectIncomingPair()
+    {
+        if (_incomingPair is null) return;
+        _discovery.RespondPair(_incomingPair, accepted: false);
+        _incomingPair = null;
+        _pairStatus = "idle";
+        PushUiState();
     }
 
     private static void OpenDocsFolder()
@@ -373,6 +478,16 @@ public sealed class MainForm : Form
         {
             connected = _connected,
             peer = _peer,
+            peers = _lanPeers,
+            incomingPair = _incomingPair is null ? null : new
+            {
+                deviceId = _incomingPair.FromDeviceId,
+                deviceName = _incomingPair.FromDeviceName,
+                ip = _incomingPair.FromIp,
+                role = _incomingPair.FromRole
+            },
+            outgoingPairDeviceId = _outgoingPairDeviceId,
+            pairStatus = _pairStatus,
             telemetry = _telemetry,
             media = _media,
             clipboardPreview = Truncate(_clipboard.MobileClipboard, 80),

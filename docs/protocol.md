@@ -16,6 +16,8 @@ Every frame is UTF-8 JSON:
 | Type | Direction | Purpose |
 |------|-----------|---------|
 | `DISCOVERY` | UDP both | Peer advertisement |
+| `PAIR_REQUEST` | UDP either | Ask a specific device to pair |
+| `PAIR_RESPONSE` | UDP either | Accept / decline pair (`accepted`) |
 | `TELEMETRY` | phone → desktop | Battery, charging, Wi-Fi SSID |
 | `CLIPBOARD_UPDATE` | either | Synced clipboard text |
 | `OTP_DETECTED` | phone → desktop | Parsed OTP code |

@@ -21,9 +21,20 @@ export type Peer = {
   httpPort: number
 }
 
+export type IncomingPair = {
+  deviceId: string
+  deviceName: string
+  ip: string
+  role: string
+}
+
 export type AppState = {
   connected: boolean
   peer?: Peer | null
+  peers?: Peer[]
+  incomingPair?: IncomingPair | null
+  outgoingPairDeviceId?: string | null
+  pairStatus?: string
   telemetry?: Telemetry | null
   media?: MediaState | null
   clipboardPreview?: string
@@ -83,17 +94,27 @@ export function subscribeState(onState: (state: AppState) => void): () => void {
     return () => window.chrome?.webview?.removeEventListener('message', handler)
   }
 
-  // Dev preview without WebView2 host
   onState({
     connected: false,
     clipboardPreview: '',
     httpPort: 19285,
     wsPort: 19284,
+    pairStatus: 'idle',
+    peers: [
+      {
+        deviceId: 'demo1',
+        deviceName: 'Pixel 8',
+        role: 'android',
+        ip: '192.168.1.42',
+        wsPort: 19284,
+        httpPort: 19286,
+      },
+    ],
     telemetry: {
       batteryPercent: 76,
       isCharging: true,
       wifiSsid: 'Home-LAN',
-      deviceName: 'Pixel',
+      deviceName: 'Pixel 8',
     },
     media: {
       title: 'Waiting for phone',

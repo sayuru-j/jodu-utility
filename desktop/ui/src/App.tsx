@@ -8,6 +8,8 @@ const initial: AppState = {
   httpPort: 19285,
   wsPort: 19284,
   maximized: false,
+  peers: [],
+  pairStatus: 'idle',
 }
 
 export default function App() {
@@ -37,6 +39,7 @@ export default function App() {
   const ssid = state.telemetry?.wifiSsid || '—'
   const device = state.telemetry?.deviceName || state.peer?.deviceName || 'phone'
   const playing = state.media?.isPlaying ?? false
+  const peers = state.peers ?? []
 
   async function onDrop(files: FileList | null) {
     setDragging(false)
@@ -146,10 +149,7 @@ export default function App() {
             </div>
           </div>
           <div className="settings-actions">
-            <button
-              type="button"
-              onClick={() => sendCommand({ action: 'OPEN_DOCS' })}
-            >
+            <button type="button" onClick={() => sendCommand({ action: 'OPEN_DOCS' })}>
               open docs
             </button>
             <button
@@ -177,6 +177,74 @@ export default function App() {
               <p>pair</p>
             </div>
           </header>
+
+          {state.incomingPair ? (
+            <section className="pair-banner" aria-label="Incoming pair request">
+              <div>
+                <span className="label">pair request</span>
+                <strong>{state.incomingPair.deviceName}</strong>
+                <span className="sub">{state.incomingPair.ip}</span>
+              </div>
+              <div className="pair-actions">
+                <button type="button" onClick={() => sendCommand({ action: 'PAIR_REJECT' })}>
+                  decline
+                </button>
+                <button
+                  type="button"
+                  className="solid"
+                  onClick={() => sendCommand({ action: 'PAIR_ACCEPT' })}
+                >
+                  accept
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          <section className="cell devices" aria-label="Devices on LAN">
+            <div className="devices-head">
+              <span className="label">devices on lan</span>
+              <span className="sub">
+                {state.pairStatus === 'outgoing'
+                  ? 'waiting for accept…'
+                  : state.connected
+                    ? 'linked'
+                    : 'tap to request pair'}
+              </span>
+            </div>
+            {peers.length === 0 ? (
+              <p className="devices-empty">scanning for phones…</p>
+            ) : (
+              <ul className="device-list">
+                {peers.map((p) => {
+                  const pending = state.outgoingPairDeviceId === p.deviceId
+                  const paired = state.connected && state.peer?.deviceId === p.deviceId
+                  return (
+                    <li key={p.deviceId}>
+                      <button
+                        type="button"
+                        className={`device-row ${paired ? 'paired' : ''} ${pending ? 'pending' : ''}`}
+                        disabled={state.connected || state.pairStatus === 'outgoing'}
+                        onClick={() =>
+                          sendCommand({ action: 'PAIR_REQUEST', value: p.deviceId })
+                        }
+                      >
+                        <span className="device-dot" aria-hidden />
+                        <span className="device-meta">
+                          <strong className="truncate">{p.deviceName}</strong>
+                          <span className="sub truncate">
+                            {p.ip} · {p.role}
+                          </span>
+                        </span>
+                        <span className="device-action">
+                          {paired ? 'linked' : pending ? '…' : 'pair'}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
 
           <main className="grid">
             <section className="cell stats" aria-label="Phone status">

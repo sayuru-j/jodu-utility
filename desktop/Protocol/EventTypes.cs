@@ -9,6 +9,8 @@ public static class EventTypes
     public const string MediaState = "MEDIA_STATE";
     public const string PingDevice = "PING_DEVICE";
     public const string Discovery = "DISCOVERY";
+    public const string PairRequest = "PAIR_REQUEST";
+    public const string PairResponse = "PAIR_RESPONSE";
 }
 
 public static class MediaActions
