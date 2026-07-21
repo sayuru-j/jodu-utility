@@ -1,0 +1,4 @@
+#!/bin/sh
+echo ""
+echo "Use Android Studio to open this project, or install the Gradle wrapper via Android Studio first."
+echo ""

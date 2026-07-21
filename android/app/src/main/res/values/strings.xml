@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JODU</string>
+    <string name="service_channel">JODU Bridge</string>
+    <string name="service_running">Paired over local Wi-Fi</string>
+    <string name="service_waiting">Waiting for desktop…</string>
+</resources>
