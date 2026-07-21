@@ -11,6 +11,12 @@ Index for project documentation.
 | [Troubleshooting](troubleshooting.md) | Common setup and LAN issues |
 | [Roadmap](roadmap.md) | To implement — planned features |
 
+## Screenshots
+
+| Desktop | Android |
+|---------|---------|
+| ![JODU desktop](media/desktop.png) | ![JODU Android](media/android.png) |
+
 ## Repo layout
 
 ```
@@ -18,6 +24,7 @@ JODU/
 ├── android/       # Kotlin Android client
 ├── desktop/       # .NET 10 + WebView2 + Vite React UI
 ├── docs/          # This documentation
+│   └── media/     # Screenshots
 ├── run-desktop.ps1
 └── README.md
 ```

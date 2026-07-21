@@ -1,6 +1,14 @@
 # JODU
 
-Lightweight zero-cloud phone ↔ PC bridge over local Wi-Fi.
+Hobby project — a lightweight zero-cloud phone ↔ PC bridge over local Wi-Fi.
+
+<p align="center">
+  <img src="docs/media/desktop.png" alt="JODU desktop" width="720" />
+</p>
+
+<p align="center">
+  <img src="docs/media/android.png" alt="JODU Android" width="320" />
+</p>
 
 ```
 JODU/
@@ -27,3 +35,4 @@ Full docs live in [`docs/`](docs/README.md):
 - [Desktop](docs/desktop.md)
 - [Android](docs/android.md)
 - [Troubleshooting](docs/troubleshooting.md)
+- [Roadmap](docs/roadmap.md)
