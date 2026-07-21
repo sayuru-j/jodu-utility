@@ -85,7 +85,8 @@ try {
         if (-not $NoBuild) {
             Write-Host "Building Jodu.Desktop..." -ForegroundColor Cyan
             if ($Dev) {
-                dotnet build $Project -c Debug
+                # Dev UI comes from Vite; skip production UI rebuild to avoid stale hashed assets.
+                dotnet build $Project -c Debug -p:SkipViteBuild=true
             } else {
                 # Release build also runs the Vite production build via MSBuild when node_modules exist.
                 if (-not (Test-Path (Join-Path $UiDir "node_modules"))) {

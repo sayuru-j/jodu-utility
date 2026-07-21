@@ -9,6 +9,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <RootNamespace>Jodu.Desktop</RootNamespace>
     <AssemblyName>Jodu.Desktop</AssemblyName>
+    <SkipViteBuild Condition="'$(SkipViteBuild)' == ''">false</SkipViteBuild>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,15 +24,22 @@
     </ItemGroup>
   </Target>
 
-  <ItemGroup>
-    <Content Include="ui\dist\**\*" Condition="Exists('ui\dist\index.html')">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>ui\%(RecursiveDir)%(Filename)%(Extension)</Link>
-    </Content>
-  </ItemGroup>
+  <!-- Rebuild Vite after evaluation so hashed asset names stay in sync, then copy to output. -->
+  <Target Name="BuildViteUi"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(SkipViteBuild)' != 'true' And Exists('ui\package.json') And Exists('ui\node_modules')">
+    <Exec Command="npm run build" WorkingDirectory="ui" />
+  </Target>
 
-  <Target Name="BuildViteUi" BeforeTargets="BeforeBuild" Condition="Exists('ui\package.json')">
-    <Exec Command="npm run build" WorkingDirectory="ui" Condition="Exists('ui\node_modules')" />
+  <Target Name="CopyViteUiToOutput"
+          AfterTargets="Build"
+          Condition="Exists('ui\dist\index.html')">
+    <ItemGroup>
+      <_JoduUiDist Include="ui\dist\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_JoduUiDist)"
+          DestinationFiles="@(_JoduUiDist->'$(OutputPath)ui\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
