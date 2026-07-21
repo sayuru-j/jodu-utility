@@ -79,15 +79,14 @@ class MainActivity : AppCompatActivity() {
         btnSendFile = findViewById(R.id.btnSendFile)
         filesHint = findViewById(R.id.filesHint)
 
-        val basePad = dp(16)
         val sidePad = dp(20)
         ViewCompat.setOnApplyWindowInsetsListener(rootContent) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.updatePadding(
                 left = sidePad + bars.left,
-                top = basePad + bars.top,
+                top = bars.top,
                 right = sidePad + bars.right,
-                bottom = basePad + bars.bottom,
+                bottom = bars.bottom,
             )
             insets
         }
@@ -106,6 +105,9 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btnNotifications).setOnClickListener {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        }
+        findViewById<Button>(R.id.btnSettings).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
         findViewById<Button>(R.id.btnAccept).setOnClickListener {
             JoduForegroundService.instance?.acceptPair()
