@@ -111,24 +111,44 @@ public sealed class MainForm : Form
     {
         base.OnLoad(e);
 
-        _discovery.Start();
-        _hub.Start();
-        _files.Start();
-        _hotkey.Register();
+        try
+        {
+            _discovery.Start();
+            _hub.Start();
+            _files.Start();
+            _hotkey.Register();
 
-        await _webView.EnsureCoreWebView2Async();
-        _webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
-        _webView.CoreWebView2.SetVirtualHostNameToFolderMapping(
-            "jodu.local",
-            GetUiDistPath(),
-            CoreWebView2HostResourceAccessKind.Allow);
+            await _webView.EnsureCoreWebView2Async();
+            _webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
+            _webView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                "jodu.local",
+                GetUiDistPath(),
+                CoreWebView2HostResourceAccessKind.Allow);
 
-        _webView.CoreWebView2.AddHostObjectToScript("jodu", _bridge);
-        _webView.CoreWebView2.WebMessageReceived += OnWebMessage;
+            // Host objects need COM visibility; UI primarily uses postMessage.
+            try
+            {
+                _webView.CoreWebView2.AddHostObjectToScript("jodu", _bridge);
+            }
+            catch
+            {
+                // optional bridge
+            }
 
-        var uiUrl = ResolveUiUrl();
-        _webView.CoreWebView2.Navigate(uiUrl);
-        UpdateTrayStatus();
+            _webView.CoreWebView2.WebMessageReceived += OnWebMessage;
+
+            var uiUrl = ResolveUiUrl();
+            _webView.CoreWebView2.Navigate(uiUrl);
+            UpdateTrayStatus();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"JODU failed to start:\n\n{ex.Message}",
+                "JODU",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
     }
 
     private static string GetUiDistPath()

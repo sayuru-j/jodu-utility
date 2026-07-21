@@ -16,6 +16,13 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
   </ItemGroup>
 
+  <!-- WinForms-only: drop the WPF WebView2 assembly that triggers MSB3277 (WindowsBase). -->
+  <Target Name="ExcludeWebView2Wpf" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <Content Include="ui\dist\**\*" Condition="Exists('ui\dist\index.html')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

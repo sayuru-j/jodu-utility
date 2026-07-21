@@ -8,7 +8,7 @@ namespace Jodu.Desktop.Network;
 
 public sealed class WebSocketHub : IDisposable
 {
-    private readonly HttpListener _listener = new();
+    private HttpListener? _listener;
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
     private readonly CancellationTokenSource _cts = new();
     private Task? _acceptTask;
@@ -21,29 +21,19 @@ public sealed class WebSocketHub : IDisposable
 
     public void Start()
     {
-        _listener.Prefixes.Add($"http://+:{JoduPorts.WebSocket}/");
-        try
-        {
-            _listener.Start();
-        }
-        catch (HttpListenerException)
-        {
-            _listener.Prefixes.Clear();
-            _listener.Prefixes.Add($"http://127.0.0.1:{JoduPorts.WebSocket}/");
-            _listener.Prefixes.Add($"http://localhost:{JoduPorts.WebSocket}/");
-            _listener.Start();
-        }
-
+        _listener = HttpListenerFactory.Start(JoduPorts.WebSocket);
         _acceptTask = Task.Run(AcceptLoopAsync);
     }
 
     private async Task AcceptLoopAsync()
     {
+        var listener = _listener ?? throw new InvalidOperationException("Listener not started.");
+
         while (!_cts.IsCancellationRequested)
         {
             try
             {
-                var context = await _listener.GetContextAsync().WaitAsync(_cts.Token);
+                var context = await listener.GetContextAsync().WaitAsync(_cts.Token);
                 if (!context.Request.IsWebSocketRequest)
                 {
                     context.Response.StatusCode = 400;
@@ -60,6 +50,14 @@ public sealed class WebSocketHub : IDisposable
             catch (OperationCanceledException)
             {
                 break;
+            }
+            catch (ObjectDisposedException)
+            {
+                break;
+            }
+            catch (HttpListenerException)
+            {
+                if (_cts.IsCancellationRequested) break;
             }
             catch
             {
@@ -131,7 +129,7 @@ public sealed class WebSocketHub : IDisposable
         _cts.Cancel();
         try
         {
-            if (_listener.IsListening)
+            if (_listener is { IsListening: true })
                 _listener.Stop();
         }
         catch { /* ignore */ }
@@ -142,7 +140,7 @@ public sealed class WebSocketHub : IDisposable
         }
 
         _clients.Clear();
-        _listener.Close();
+        try { _listener?.Close(); } catch { /* ignore */ }
         _cts.Dispose();
     }
 }

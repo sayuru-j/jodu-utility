@@ -5,7 +5,7 @@ namespace Jodu.Desktop.Network;
 
 public sealed class FileTransferServer : IDisposable
 {
-    private readonly HttpListener _listener = new();
+    private HttpListener? _listener;
     private readonly CancellationTokenSource _cts = new();
     private readonly string _downloadDir;
     private Task? _loop;
@@ -21,34 +21,32 @@ public sealed class FileTransferServer : IDisposable
 
     public void Start()
     {
-        _listener.Prefixes.Add($"http://+:{JoduPorts.FileHttp}/");
-        try
-        {
-            _listener.Start();
-        }
-        catch (HttpListenerException)
-        {
-            _listener.Prefixes.Clear();
-            _listener.Prefixes.Add($"http://127.0.0.1:{JoduPorts.FileHttp}/");
-            _listener.Prefixes.Add($"http://localhost:{JoduPorts.FileHttp}/");
-            _listener.Start();
-        }
-
+        _listener = HttpListenerFactory.Start(JoduPorts.FileHttp);
         _loop = Task.Run(ListenLoopAsync);
     }
 
     private async Task ListenLoopAsync()
     {
+        var listener = _listener ?? throw new InvalidOperationException("Listener not started.");
+
         while (!_cts.IsCancellationRequested)
         {
             try
             {
-                var context = await _listener.GetContextAsync().WaitAsync(_cts.Token);
+                var context = await listener.GetContextAsync().WaitAsync(_cts.Token);
                 _ = Task.Run(() => HandleRequestAsync(context));
             }
             catch (OperationCanceledException)
             {
                 break;
+            }
+            catch (ObjectDisposedException)
+            {
+                break;
+            }
+            catch (HttpListenerException)
+            {
+                if (_cts.IsCancellationRequested) break;
             }
             catch
             {
@@ -137,12 +135,12 @@ public sealed class FileTransferServer : IDisposable
         _cts.Cancel();
         try
         {
-            if (_listener.IsListening)
+            if (_listener is { IsListening: true })
                 _listener.Stop();
         }
         catch { /* ignore */ }
 
-        _listener.Close();
+        try { _listener?.Close(); } catch { /* ignore */ }
         _cts.Dispose();
     }
 }

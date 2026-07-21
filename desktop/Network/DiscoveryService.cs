@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Text.Json;
 using Jodu.Desktop.Protocol;
 
 namespace Jodu.Desktop.Network;
@@ -98,22 +97,7 @@ public sealed class DiscoveryService : IDisposable
         }
     }
 
-    private static string GetLocalIp()
-    {
-        try
-        {
-            using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            socket.Connect("8.8.8.8", 65530);
-            if (socket.LocalEndPoint is IPEndPoint ep)
-                return ep.Address.ToString();
-        }
-        catch
-        {
-            // fall through
-        }
-
-        return IPAddress.Loopback.ToString();
-    }
+    private static string GetLocalIp() => HttpListenerFactory.GetLocalIp();
 
     public void Dispose()
     {
