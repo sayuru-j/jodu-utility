@@ -140,6 +140,7 @@ class MainActivity : AppCompatActivity() {
             linked -> status.text = getString(R.string.service_paired, pairedName ?: "desktop")
             incoming != null -> status.setText(R.string.status_incoming)
             service?.pairStatus == "outgoing" -> status.setText(R.string.status_outgoing)
+            service?.pairStatus == "accepted" -> status.setText(R.string.status_connecting)
             service != null -> status.setText(R.string.status_running)
             else -> status.setText(R.string.status_starting)
         }

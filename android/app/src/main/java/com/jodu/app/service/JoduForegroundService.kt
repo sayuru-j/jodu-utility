@@ -28,11 +28,12 @@ import com.jodu.app.protocol.DiscoveryPayload
 import com.jodu.app.protocol.EventTypes
 import com.jodu.app.protocol.JoduJson
 import com.jodu.app.protocol.JoduMessage
+import com.jodu.app.protocol.JoduPorts
 import com.jodu.app.protocol.MediaControlPayload
 import com.jodu.app.protocol.MediaStatePayload
 import com.jodu.app.protocol.OtpPayload
-import com.jodu.app.protocol.TelemetryPayload
 import com.jodu.app.protocol.PairPayload
+import com.jodu.app.protocol.TelemetryPayload
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -137,17 +138,18 @@ class JoduForegroundService : Service() {
                 scope.launch(Dispatchers.Main) {
                     if (outgoingPairDeviceId == null || res.fromDeviceId != outgoingPairDeviceId) return@launch
                     if (res.accepted == true) {
+                        val port = res.wsPort.takeIf { it > 0 } ?: JoduPorts.WEB_SOCKET
                         desktop = DiscoveryPayload(
                             deviceId = res.fromDeviceId,
                             deviceName = res.fromDeviceName,
                             role = res.fromRole,
                             ip = res.fromIp,
-                            wsPort = res.wsPort,
+                            wsPort = port,
                             httpPort = res.httpPort,
                         )
                         pairStatus = "accepted"
                         outgoingPairDeviceId = null
-                        socket.connect(res.fromIp, res.wsPort)
+                        socket.connect(res.fromIp, port)
                         refreshOngoingNotification()
                     } else {
                         pairStatus = "rejected"
@@ -228,19 +230,20 @@ class JoduForegroundService : Service() {
 
     fun acceptPair() {
         val req = incomingPair ?: return
+        val port = req.wsPort.takeIf { it > 0 } ?: JoduPorts.WEB_SOCKET
         desktop = DiscoveryPayload(
             deviceId = req.fromDeviceId,
             deviceName = req.fromDeviceName,
             role = req.fromRole,
             ip = req.fromIp,
-            wsPort = req.wsPort,
+            wsPort = port,
             httpPort = req.httpPort,
         )
         discovery.respondPair(req, accepted = true)
         incomingPair = null
         pairStatus = "accepted"
         clearPairRequestNotification()
-        socket.connect(req.fromIp, req.wsPort)
+        socket.connect(req.fromIp, port)
         refreshOngoingNotification()
         notifyUi()
     }
@@ -279,6 +282,10 @@ class JoduForegroundService : Service() {
     private fun refreshOngoingNotification() {
         val text = when {
             isLinked -> getString(R.string.service_paired, desktop?.deviceName ?: "desktop")
+            pairStatus == "accepted" && !isLinked -> {
+                val err = if (::socket.isInitialized) socket.lastError else null
+                if (err.isNullOrBlank()) "connecting to desktop…" else "connect failed · retrying"
+            }
             else -> getString(R.string.service_running)
         }
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager

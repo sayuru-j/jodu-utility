@@ -1,5 +1,6 @@
 package com.jodu.app.network
 
+import android.util.Log
 import com.jodu.app.protocol.JoduJson
 import com.jodu.app.protocol.JoduMessage
 import kotlinx.coroutines.CoroutineScope
@@ -23,8 +24,10 @@ class JoduWebSocketClient(
     private val onConnectionChanged: (Boolean) -> Unit,
 ) {
     private val client = OkHttpClient.Builder()
+        .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .pingInterval(20, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .build()
 
     private var socket: WebSocket? = null
@@ -36,9 +39,15 @@ class JoduWebSocketClient(
     var isConnected: Boolean = false
         private set
 
+    @Volatile
+    var lastError: String? = null
+        private set
+
     fun connect(host: String, port: Int) {
-        endpoint = "ws://$host:$port/"
+        val cleanHost = host.trim().substringBefore('%').trim('[').trim(']')
+        endpoint = "ws://$cleanHost:$port/"
         intentionalClose.set(false)
+        lastError = null
         open()
     }
 
@@ -63,9 +72,12 @@ class JoduWebSocketClient(
     private fun open() {
         val url = endpoint ?: return
         socket?.cancel()
+        Log.i(TAG, "connecting $url")
         val request = Request.Builder().url(url).build()
         socket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                Log.i(TAG, "connected $url")
+                lastError = null
                 isConnected = true
                 onConnectionChanged(true)
             }
@@ -89,6 +101,8 @@ class JoduWebSocketClient(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                lastError = t.message ?: t.javaClass.simpleName
+                Log.e(TAG, "failed $url: $lastError", t)
                 isConnected = false
                 onConnectionChanged(false)
                 scheduleReconnect()
@@ -103,5 +117,9 @@ class JoduWebSocketClient(
             delay(2000)
             if (isActive && !intentionalClose.get()) open()
         }
+    }
+
+    companion object {
+        private const val TAG = "JoduWS"
     }
 }

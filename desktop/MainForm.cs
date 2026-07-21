@@ -173,21 +173,28 @@ public sealed class MainForm : Form
 
         _hub.ClientConnected += () =>
         {
-            _connected = true;
-            _pairStatus = "linked";
-            _incomingPair = null;
-            _outgoingPairDeviceId = null;
-            UpdateTrayStatus();
-            PushUiState();
+            BeginInvoke(() =>
+            {
+                _connected = true;
+                _pairStatus = "linked";
+                _incomingPair = null;
+                _outgoingPairDeviceId = null;
+                UpdateTrayStatus();
+                _toasts.ShowInfo("JODU", $"Paired with {_peer?.DeviceName ?? "phone"}");
+                PushUiState();
+            });
         };
 
         _hub.ClientDisconnected += () =>
         {
-            _connected = _hub.HasClients;
-            if (!_connected && _pairStatus == "linked")
-                _pairStatus = "idle";
-            UpdateTrayStatus();
-            PushUiState();
+            BeginInvoke(() =>
+            {
+                _connected = _hub.HasClients;
+                if (!_connected && _pairStatus == "linked")
+                    _pairStatus = "idle";
+                UpdateTrayStatus();
+                PushUiState();
+            });
         };
 
         _hub.MessageReceived += OnMessage;

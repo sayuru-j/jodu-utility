@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Security.Cryptography;
 using System.Text;
 using Jodu.Desktop.Protocol;
 
@@ -8,7 +10,7 @@ namespace Jodu.Desktop.Network;
 
 public sealed class WebSocketHub : IDisposable
 {
-    private HttpListener? _listener;
+    private TcpListener? _listener;
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
     private readonly CancellationTokenSource _cts = new();
     private Task? _acceptTask;
@@ -21,7 +23,11 @@ public sealed class WebSocketHub : IDisposable
 
     public void Start()
     {
-        _listener = HttpListenerFactory.Start(JoduPorts.WebSocket);
+        // Bind all interfaces — HttpListener URL prefixes often stick to the wrong NIC
+        // (VPN/default route) so the phone's ws://{discovery-ip}:19284 connect fails.
+        _listener = new TcpListener(IPAddress.Any, JoduPorts.WebSocket);
+        _listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+        _listener.Start();
         _acceptTask = Task.Run(AcceptLoopAsync);
     }
 
@@ -33,19 +39,8 @@ public sealed class WebSocketHub : IDisposable
         {
             try
             {
-                var context = await listener.GetContextAsync().WaitAsync(_cts.Token);
-                if (!context.Request.IsWebSocketRequest)
-                {
-                    context.Response.StatusCode = 400;
-                    context.Response.Close();
-                    continue;
-                }
-
-                var wsContext = await context.AcceptWebSocketAsync(null);
-                var id = Guid.NewGuid();
-                _clients[id] = wsContext.WebSocket;
-                ClientConnected?.Invoke();
-                _ = Task.Run(() => ReceiveLoopAsync(id, wsContext.WebSocket));
+                var client = await listener.AcceptTcpClientAsync().WaitAsync(_cts.Token);
+                _ = Task.Run(() => HandleClientAsync(client), _cts.Token);
             }
             catch (OperationCanceledException)
             {
@@ -55,7 +50,7 @@ public sealed class WebSocketHub : IDisposable
             {
                 break;
             }
-            catch (HttpListenerException)
+            catch (SocketException)
             {
                 if (_cts.IsCancellationRequested) break;
             }
@@ -64,6 +59,94 @@ public sealed class WebSocketHub : IDisposable
                 if (_cts.IsCancellationRequested) break;
             }
         }
+    }
+
+    private async Task HandleClientAsync(TcpClient client)
+    {
+        client.NoDelay = true;
+        WebSocket? socket = null;
+        var id = Guid.NewGuid();
+        var announced = false;
+
+        try
+        {
+            var stream = client.GetStream();
+            if (!await TryCompleteHandshakeAsync(stream, _cts.Token))
+                return;
+
+            socket = WebSocket.CreateFromStream(
+                stream,
+                isServer: true,
+                subProtocol: null,
+                keepAliveInterval: TimeSpan.FromSeconds(20));
+
+            _clients[id] = socket;
+            announced = true;
+            ClientConnected?.Invoke();
+            await ReceiveLoopAsync(id, socket);
+        }
+        catch
+        {
+            // handshake or connect failed
+        }
+        finally
+        {
+            _clients.TryRemove(id, out _);
+            try { socket?.Dispose(); } catch { /* ignore */ }
+            try { client.Dispose(); } catch { /* ignore */ }
+            if (announced)
+                ClientDisconnected?.Invoke();
+        }
+    }
+
+    private static async Task<bool> TryCompleteHandshakeAsync(NetworkStream stream, CancellationToken ct)
+    {
+        var request = await ReadHttpHeaderAsync(stream, ct);
+        if (request is null) return false;
+
+        if (!request.Contains("GET ", StringComparison.Ordinal) ||
+            !request.Contains("Upgrade: websocket", StringComparison.OrdinalIgnoreCase))
+        {
+            var bytes = Encoding.ASCII.GetBytes("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
+            await stream.WriteAsync(bytes, ct);
+            return false;
+        }
+
+        const string keyHeader = "Sec-WebSocket-Key:";
+        var keyLine = request
+            .Split(["\r\n"], StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault(l => l.StartsWith(keyHeader, StringComparison.OrdinalIgnoreCase));
+        if (keyLine is null) return false;
+
+        var key = keyLine[keyHeader.Length..].Trim();
+        var accept = Convert.ToBase64String(
+            SHA1.HashData(Encoding.ASCII.GetBytes(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
+
+        var response =
+            "HTTP/1.1 101 Switching Protocols\r\n" +
+            "Upgrade: websocket\r\n" +
+            "Connection: Upgrade\r\n" +
+            $"Sec-WebSocket-Accept: {accept}\r\n" +
+            "\r\n";
+
+        await stream.WriteAsync(Encoding.ASCII.GetBytes(response), ct);
+        return true;
+    }
+
+    private static async Task<string?> ReadHttpHeaderAsync(NetworkStream stream, CancellationToken ct)
+    {
+        var buffer = new byte[1];
+        var sb = new StringBuilder(1024);
+        while (sb.Length < 8192)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(0, 1), ct);
+            if (read <= 0) return null;
+            sb.Append((char)buffer[0]);
+            if (sb.Length >= 4 && sb.ToString(sb.Length - 4, 4) == "\r\n\r\n")
+                return sb.ToString();
+        }
+
+        return null;
     }
 
     private async Task ReceiveLoopAsync(Guid id, WebSocket socket)
@@ -97,8 +180,12 @@ public sealed class WebSocketHub : IDisposable
         finally
         {
             _clients.TryRemove(id, out _);
-            try { socket.Dispose(); } catch { /* ignore */ }
-            ClientDisconnected?.Invoke();
+            try
+            {
+                if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
+                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
+            }
+            catch { /* ignore */ }
         }
     }
 
@@ -127,12 +214,7 @@ public sealed class WebSocketHub : IDisposable
     public void Dispose()
     {
         _cts.Cancel();
-        try
-        {
-            if (_listener is { IsListening: true })
-                _listener.Stop();
-        }
-        catch { /* ignore */ }
+        try { _listener?.Stop(); } catch { /* ignore */ }
 
         foreach (var socket in _clients.Values)
         {
@@ -140,7 +222,6 @@ public sealed class WebSocketHub : IDisposable
         }
 
         _clients.Clear();
-        try { _listener?.Close(); } catch { /* ignore */ }
         _cts.Dispose();
     }
 }

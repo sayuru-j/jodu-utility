@@ -10,6 +10,7 @@
     <string name="status_running">scanning lan for desktops</string>
     <string name="status_linked">paired with desktop</string>
     <string name="status_outgoing">waiting for desktop to accept…</string>
+    <string name="status_connecting">connecting to desktop…</string>
     <string name="status_incoming">desktop wants to pair</string>
     <string name="action_start">start bridge</string>
     <string name="bridge_on">bridge on</string>
