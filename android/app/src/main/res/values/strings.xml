@@ -33,7 +33,8 @@
     <string name="label_devices">devices on lan</string>
     <string name="label_bridge">bridge</string>
     <string name="label_files">files</string>
-    <string name="files_hint">send to paired desktop · downloads folder</string>
+    <string name="files_hint">send to paired desktop · saves to Downloads</string>
+    <string name="files_need_storage">allow storage access so incoming files can be saved</string>
     <string name="action_send_file">send file to desktop</string>
     <string name="action_settings">settings</string>
     <string name="action_close">close</string>

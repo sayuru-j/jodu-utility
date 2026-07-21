@@ -82,6 +82,17 @@ data class PairPayload(
     val accepted: Boolean? = null,
 )
 
+@Serializable
+data class FileTransferPayload(
+    @SerialName("fileName") val fileName: String,
+    val direction: String = "send",
+    @SerialName("bytesTransferred") val bytesTransferred: Long = 0L,
+    @SerialName("totalBytes") val totalBytes: Long = 0L,
+    val percent: Int = 0,
+    val status: String = "progress",
+    val error: String? = null,
+)
+
 object JoduJson {
     val json = Json {
         ignoreUnknownKeys = true

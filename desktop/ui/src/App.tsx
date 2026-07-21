@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { AppState, Peer, Telemetry } from './bridge'
-import { sendCommand, subscribeState, uploadFiles } from './bridge'
+import { resolvePeerUploadBase, sendCommand, subscribeState, uploadFiles } from './bridge'
 import './App.css'
 
 const initial: AppState = {
@@ -50,10 +50,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [settingsOpen])
 
-  const peerBase = useMemo(() => {
-    if (!state.peer?.ip) return ''
-    return `http://${state.peer.ip}:${state.peer.httpPort}`
-  }, [state.peer])
+  const peerBase = useMemo(
+    () => resolvePeerUploadBase(state.peer, state.peers, state.connected),
+    [state.peer, state.peers, state.connected],
+  )
 
   const battery = state.telemetry?.batteryPercent ?? null
   const charging = state.telemetry?.isCharging ?? false
@@ -71,17 +71,46 @@ export default function App() {
     return [...byIp.values()]
   }, [state.peers, state.peer, state.connected])
 
+  const transferNote = useMemo(() => {
+    const t = state.transfer
+    if (note) return note
+    if (!t?.fileName) return ''
+    if (t.status === 'done') {
+      return t.direction === 'send' ? `sent · ${t.fileName}` : `received · ${t.fileName}`
+    }
+    if (t.status === 'error') return `failed · ${t.error || t.fileName}`
+    const pct = t.percent >= 0 ? ` ${t.percent}%` : ''
+    return t.direction === 'send'
+      ? `sending · ${t.fileName}${pct}`
+      : `receiving · ${t.fileName}${pct}`
+  }, [state.transfer, note])
+
+  const barPercent = useMemo(() => {
+    const fromNote = note.match(/(\d+)%/)
+    if (fromNote) return Number(fromNote[1])
+    if (state.transfer?.status === 'progress' && state.transfer.percent >= 0) {
+      return state.transfer.percent
+    }
+    return null
+  }, [note, state.transfer])
+
   async function onDrop(files: FileList | null) {
     setDragging(false)
     if (!files?.length) return
+    if (!state.connected && !peerBase) {
+      setNote('no phone linked')
+      return
+    }
     if (!peerBase) {
       setNote('no phone linked')
       return
     }
     try {
-      setNote(`sending ${files.length}`)
-      await uploadFiles(files, peerBase)
-      setNote('sent')
+      const total = files.length
+      await uploadFiles(files, peerBase, (fileName, percent, index) => {
+        setNote(`sending · ${fileName} ${percent}% (${index + 1}/${total})`)
+      })
+      setNote(total === 1 ? 'sent' : `sent ${total} files`)
     } catch {
       setNote('transfer failed')
     }
@@ -212,19 +241,9 @@ export default function App() {
                 <span className="hint">copy latest phone clipboard</span>
               </div>
               <div className="settings-row">
-                <span className="label">websocket</span>
-                <strong>{state.wsPort}</strong>
-                <span className="hint">desktop listener</span>
-              </div>
-              <div className="settings-row">
-                <span className="label">file http</span>
-                <strong>{state.httpPort}</strong>
-                <span className="hint">downloads receiver</span>
-              </div>
-              <div className="settings-row">
                 <span className="label">peer</span>
                 <strong className="truncate">
-                  {state.peer?.ip ? `${state.peer.ip}:${state.peer.httpPort}` : 'none'}
+                  {state.peer?.ip || 'none'}
                 </strong>
                 <span className="hint">{state.connected ? 'paired' : 'not paired'}</span>
               </div>
@@ -422,15 +441,26 @@ export default function App() {
                     onChange={(e) => void onDrop(e.target.files)}
                   />
                 </label>
+                {(barPercent != null) ? (
+                  <div
+                    className="transfer-bar"
+                    role="progressbar"
+                    aria-valuenow={barPercent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <span style={{ width: `${barPercent}%` }} />
+                  </div>
+                ) : null}
                 <AnimatePresence>
-                  {note ? (
+                  {transferNote ? (
                     <motion.span
                       className="note"
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
                     >
-                      {note}
+                      {transferNote}
                     </motion.span>
                   ) : null}
                 </AnimatePresence>
@@ -460,9 +490,7 @@ export default function App() {
             </motion.main>
 
             <motion.footer className="foot" variants={fadeUp}>
-              <span>ws {state.wsPort}</span>
-              <span className="dot-sep" />
-              <span>http {state.httpPort}</span>
+              <span>{state.connected ? `paired · ${device}` : 'waiting'}</span>
               {state.peer?.ip ? (
                 <>
                   <span className="dot-sep" />

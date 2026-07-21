@@ -11,6 +11,7 @@ object EventTypes {
     const val DISCOVERY = "DISCOVERY"
     const val PAIR_REQUEST = "PAIR_REQUEST"
     const val PAIR_RESPONSE = "PAIR_RESPONSE"
+    const val FILE_TRANSFER = "FILE_TRANSFER"
 }
 
 object MediaActions {

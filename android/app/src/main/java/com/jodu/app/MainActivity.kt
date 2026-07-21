@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -40,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bridgeLabel: TextView
     private lateinit var btnSendFile: Button
     private lateinit var filesHint: TextView
+    private lateinit var filesProgress: ProgressBar
 
     private var updatingSwitch = false
     private val prefs by lazy { getSharedPreferences(JoduForegroundService.PREFS, MODE_PRIVATE) }
@@ -78,6 +80,7 @@ class MainActivity : AppCompatActivity() {
         bridgeLabel = findViewById(R.id.bridgeLabel)
         btnSendFile = findViewById(R.id.btnSendFile)
         filesHint = findViewById(R.id.filesHint)
+        filesProgress = findViewById(R.id.filesProgress)
 
         val sidePad = dp(20)
         ViewCompat.setOnApplyWindowInsetsListener(rootContent) { view, insets ->
@@ -199,11 +202,23 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnSendFile.isEnabled = linked
-        val transfer = service?.lastTransferNote
+        val transfer = service?.transferLabel ?: service?.lastTransferNote
+        val percent = service?.transferPercent ?: -1
         filesHint.text = when {
             !linked -> getString(R.string.files_hint)
             !transfer.isNullOrBlank() -> transfer
             else -> getString(R.string.files_hint)
+        }
+        if (linked && percent in 0..100) {
+            filesProgress.visibility = View.VISIBLE
+            filesProgress.isIndeterminate = false
+            filesProgress.progress = percent
+        } else if (linked && !transfer.isNullOrBlank() && transfer.contains("…")) {
+            filesProgress.visibility = View.VISIBLE
+            filesProgress.isIndeterminate = true
+        } else {
+            filesProgress.visibility = View.GONE
+            filesProgress.isIndeterminate = false
         }
 
         renderDevices(peers, service)
@@ -333,6 +348,19 @@ class MainActivity : AppCompatActivity() {
             != PackageManager.PERMISSION_GRANTED
         ) {
             needed += Manifest.permission.ACCESS_FINE_LOCATION
+        }
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed += Manifest.permission.WRITE_EXTERNAL_STORAGE
+            }
+        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed += Manifest.permission.READ_EXTERNAL_STORAGE
+            }
         }
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), 10)

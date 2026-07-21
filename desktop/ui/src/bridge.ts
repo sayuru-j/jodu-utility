@@ -30,6 +30,16 @@ export type IncomingPair = {
   role: string
 }
 
+export type FileTransfer = {
+  fileName: string
+  direction: string
+  bytesTransferred?: number
+  totalBytes?: number
+  percent: number
+  status: string
+  error?: string | null
+}
+
 export type AppState = {
   connected: boolean
   peer?: Peer | null
@@ -39,6 +49,7 @@ export type AppState = {
   pairStatus?: string
   telemetry?: Telemetry | null
   media?: MediaState | null
+  transfer?: FileTransfer | null
   clipboardPreview?: string
   httpPort: number
   wsPort: number
@@ -70,6 +81,8 @@ declare global {
   }
 }
 
+const ANDROID_FILE_HTTP = 19286
+
 export function sendCommand(command: UiCommand) {
   const payload = JSON.stringify(command)
   if (window.chrome?.webview) {
@@ -77,6 +90,25 @@ export function sendCommand(command: UiCommand) {
     return
   }
   console.debug('[jodu] command', command)
+}
+
+export function resolvePeerUploadBase(
+  peer: Peer | null | undefined,
+  peers: Peer[] | undefined,
+  connected: boolean,
+): string {
+  const linked =
+    peer?.ip
+      ? peer
+      : connected
+        ? peers?.find((p) => p.role?.toLowerCase() === 'android' && p.ip)
+        : undefined
+  if (!linked?.ip) return ''
+  const port =
+    linked.httpPort > 0 && linked.httpPort !== 19285
+      ? linked.httpPort
+      : ANDROID_FILE_HTTP
+  return `http://${linked.ip}:${port}`
 }
 
 export function subscribeState(onState: (state: AppState) => void): () => void {
@@ -128,16 +160,41 @@ export function subscribeState(onState: (state: AppState) => void): () => void {
   return () => undefined
 }
 
-export async function uploadFiles(files: FileList | File[], peerBase: string) {
+export function uploadFiles(
+  files: FileList | File[],
+  peerBase: string,
+  onProgress?: (fileName: string, percent: number, index: number, total: number) => void,
+): Promise<void> {
   const list = Array.from(files)
-  for (const file of list) {
-    await fetch(`${peerBase}/upload`, {
-      method: 'POST',
-      headers: {
-        'X-Filename': file.name,
-        'Content-Type': 'application/octet-stream',
-      },
-      body: file,
+  return list.reduce(async (prev, file, index) => {
+    await prev
+    await uploadOne(file, peerBase, (percent) => {
+      onProgress?.(file.name, percent, index, list.length)
     })
-  }
+  }, Promise.resolve())
+}
+
+function uploadOne(
+  file: File,
+  peerBase: string,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${peerBase}/upload`)
+    xhr.setRequestHeader('X-Filename', file.name)
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return
+      const percent = Math.round((event.loaded * 100) / event.total)
+      onProgress?.(percent)
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve()
+      else reject(new Error(`upload failed: HTTP ${xhr.status}`))
+    }
+    xhr.onerror = () => reject(new Error('upload failed'))
+    onProgress?.(0)
+    xhr.send(file)
+  })
 }

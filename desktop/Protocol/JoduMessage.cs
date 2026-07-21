@@ -109,3 +109,16 @@ public sealed class PairPayload
     public string TargetDeviceId { get; set; } = string.Empty;
     public bool? Accepted { get; set; }
 }
+
+public sealed class FileTransferPayload
+{
+    public string FileName { get; set; } = string.Empty;
+    /// <summary>send = this device is uploading; receive = this device is saving.</summary>
+    public string Direction { get; set; } = "send";
+    public long BytesTransferred { get; set; }
+    public long TotalBytes { get; set; }
+    public int Percent { get; set; }
+    /// <summary>progress | done | error</summary>
+    public string Status { get; set; } = "progress";
+    public string? Error { get; set; }
+}

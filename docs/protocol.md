@@ -25,6 +25,7 @@ Every frame is UTF-8 JSON:
 | `MEDIA_CONTROL` | desktop → phone | `PLAY` / `PAUSE` / `NEXT` / `PREVIOUS` / volume |
 | `MEDIA_STATE` | phone → desktop | Title, artist, playing, volume |
 | `PING_DEVICE` | desktop → phone | Trigger phone alert tone |
+| `FILE_TRANSFER` | either | File send/receive progress (`percent`, `status`) |
 
 ### Example payloads
 

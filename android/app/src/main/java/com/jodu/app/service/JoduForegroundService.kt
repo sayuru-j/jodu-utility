@@ -26,6 +26,7 @@ import com.jodu.app.network.JoduWebSocketClient
 import com.jodu.app.protocol.ClipboardPayload
 import com.jodu.app.protocol.DiscoveryPayload
 import com.jodu.app.protocol.EventTypes
+import com.jodu.app.protocol.FileTransferPayload
 import com.jodu.app.protocol.JoduJson
 import com.jodu.app.protocol.JoduMessage
 import com.jodu.app.protocol.JoduPorts
@@ -69,6 +70,10 @@ class JoduForegroundService : Service() {
         private set
     @Volatile var lastTransferNote: String? = null
         private set
+    @Volatile var transferPercent: Int = -1
+        private set
+    @Volatile var transferLabel: String? = null
+        private set
 
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
 
@@ -106,8 +111,28 @@ class JoduForegroundService : Service() {
         media = MediaControllerBridge(this)
         ping = PingAlertHelper(this)
         fileServer = FileHttpServer(this).also { server ->
+            server.onProgress = { fileName, transferred, total ->
+                val percent = if (total > 0) ((transferred * 100) / total).toInt().coerceIn(0, 100) else -1
+                publishTransfer(
+                    fileName = fileName,
+                    direction = "receive",
+                    transferred = transferred,
+                    total = total,
+                    percent = percent,
+                    status = "progress",
+                )
+            }
             server.onFileReceived = { path ->
-                lastTransferNote = "received file"
+                val name = path.substringAfterLast('/').substringAfterLast(':')
+                publishTransfer(
+                    fileName = name,
+                    direction = "receive",
+                    transferred = 0,
+                    total = 0,
+                    percent = 100,
+                    status = "done",
+                )
+                lastTransferNote = "received · $name"
                 notifyUi()
             }
         }
@@ -140,7 +165,9 @@ class JoduForegroundService : Service() {
                 val linkedPeer = desktop
                 if (linkedPeer != null) {
                     peers.firstOrNull { it.ip == linkedPeer.ip }?.let { fresh ->
-                        desktop = fresh
+                        desktop = fresh.copy(
+                            httpPort = normalizeDesktopHttpPort(fresh.role, fresh.httpPort),
+                        )
                     }
                 }
                 notifyUi()
@@ -161,7 +188,7 @@ class JoduForegroundService : Service() {
                             role = res.fromRole,
                             ip = res.fromIp,
                             wsPort = port,
-                            httpPort = res.httpPort,
+                            httpPort = normalizeDesktopHttpPort(res.fromRole, res.httpPort),
                         )
                         pairStatus = "accepted"
                         outgoingPairDeviceId = null
@@ -241,12 +268,90 @@ class JoduForegroundService : Service() {
             notifyUi()
             var ok = 0
             for (uri in uris) {
-                val result = FileUploadClient.upload(this@JoduForegroundService, peer, uri)
-                if (result.isSuccess) ok++
+                val result = FileUploadClient.upload(
+                    this@JoduForegroundService,
+                    peer,
+                    uri,
+                ) { fileName, transferred, total ->
+                    val percent = if (total > 0) ((transferred * 100) / total).toInt().coerceIn(0, 100) else -1
+                    publishTransfer(
+                        fileName = fileName,
+                        direction = "send",
+                        transferred = transferred,
+                        total = total,
+                        percent = percent,
+                        status = "progress",
+                    )
+                }
+                if (result.isSuccess) {
+                    ok++
+                    publishTransfer(
+                        fileName = "file",
+                        direction = "send",
+                        transferred = 0,
+                        total = 0,
+                        percent = 100,
+                        status = "done",
+                    )
+                } else {
+                    publishTransfer(
+                        fileName = "file",
+                        direction = "send",
+                        transferred = 0,
+                        total = 0,
+                        percent = 0,
+                        status = "error",
+                        error = result.exceptionOrNull()?.message,
+                    )
+                }
             }
             lastTransferNote = if (ok == uris.size) "sent $ok file(s)" else "sent $ok/${uris.size}"
+            transferPercent = -1
+            transferLabel = null
             notifyUi()
         }
+    }
+
+    private var lastTransferPushMs = 0L
+
+    private fun publishTransfer(
+        fileName: String,
+        direction: String,
+        transferred: Long,
+        total: Long,
+        percent: Int,
+        status: String,
+        error: String? = null,
+    ) {
+        val label = when (status) {
+            "done" -> if (direction == "send") "sent · $fileName" else "received · $fileName"
+            "error" -> "transfer failed · ${error ?: fileName}"
+            else -> {
+                val pct = if (percent >= 0) " $percent%" else ""
+                if (direction == "send") "sending · $fileName$pct" else "receiving · $fileName$pct"
+            }
+        }
+        transferLabel = label
+        transferPercent = percent
+        lastTransferNote = label
+        notifyUi()
+
+        val now = System.currentTimeMillis()
+        if (status == "progress" && now - lastTransferPushMs < 200) return
+        lastTransferPushMs = now
+        if (!isLinked) return
+        socket.send(
+            EventTypes.FILE_TRANSFER,
+            FileTransferPayload(
+                fileName = fileName,
+                direction = direction,
+                bytesTransferred = transferred,
+                totalBytes = total,
+                percent = percent.coerceAtLeast(0),
+                status = status,
+                error = error,
+            ),
+        )
     }
 
     fun sendOtp(payload: OtpPayload) {
@@ -313,7 +418,7 @@ class JoduForegroundService : Service() {
             role = req.fromRole,
             ip = req.fromIp,
             wsPort = port,
-            httpPort = req.httpPort,
+            httpPort = normalizeDesktopHttpPort(req.fromRole, req.httpPort),
         )
         discovery.respondPair(req, accepted = true)
         incomingPair = null
@@ -476,6 +581,35 @@ class JoduForegroundService : Service() {
                 lastClip = text
                 clipboard.setPrimaryClip(ClipData.newPlainText("jodu", text))
             }
+
+            EventTypes.FILE_TRANSFER -> {
+                val transfer = JoduJson.payload<FileTransferPayload>(message) ?: return
+                // Peer is reporting their side — flip send/receive wording for local UI.
+                val localDirection = if (transfer.direction == "send") "receive" else "send"
+                val label = when (transfer.status) {
+                    "done" -> if (localDirection == "send") "sent · ${transfer.fileName}" else "received · ${transfer.fileName}"
+                    "error" -> "transfer failed · ${transfer.error ?: transfer.fileName}"
+                    else -> {
+                        val pct = if (transfer.percent >= 0) " ${transfer.percent}%" else ""
+                        if (localDirection == "send") "sending · ${transfer.fileName}$pct"
+                        else "receiving · ${transfer.fileName}$pct"
+                    }
+                }
+                transferLabel = label
+                transferPercent = transfer.percent
+                lastTransferNote = label
+                if (transfer.status == "done" || transfer.status == "error") {
+                    scope.launch {
+                        delay(2_500)
+                        if (lastTransferNote == label) {
+                            transferPercent = -1
+                            transferLabel = null
+                            notifyUi()
+                        }
+                    }
+                }
+                notifyUi()
+            }
         }
     }
 
@@ -543,6 +677,15 @@ class JoduForegroundService : Service() {
             .setContentIntent(open)
             .setOngoing(true)
             .build()
+    }
+
+    private fun normalizeDesktopHttpPort(role: String, httpPort: Int): Int {
+        if (!role.equals("desktop", ignoreCase = true)) {
+            return httpPort.takeIf { it > 0 } ?: JoduPorts.FILE_HTTP
+        }
+        // Desktop file receiver is always 19285; never the phone's 19286.
+        if (httpPort <= 0 || httpPort == JoduPorts.FILE_HTTP) return 19285
+        return httpPort
     }
 
     private fun resolveDeviceId(): String {

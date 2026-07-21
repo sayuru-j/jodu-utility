@@ -10,9 +10,11 @@ import com.jodu.app.protocol.JoduPorts
 import fi.iki.elonen.NanoHTTPD
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStream
 
 class FileHttpServer(private val context: Context) : NanoHTTPD(JoduPorts.FILE_HTTP) {
     var onFileReceived: ((String) -> Unit)? = null
+    var onProgress: ((fileName: String, transferred: Long, total: Long) -> Unit)? = null
 
     override fun serve(session: IHTTPSession): Response {
         if (session.method == Method.OPTIONS) {
@@ -31,20 +33,14 @@ class FileHttpServer(private val context: Context) : NanoHTTPD(JoduPorts.FILE_HT
                 ?.takeIf { it.isNotBlank() }
                 ?: "jodu-${System.currentTimeMillis()}.bin"
 
-            val bodyFiles = HashMap<String, String>()
-            session.parseBody(bodyFiles)
+            val total = session.headers["content-length"]?.toLongOrNull() ?: -1L
+            onProgress?.invoke(fileName, 0L, total.coerceAtLeast(0L))
 
-            val tmpPath = bodyFiles["postData"]
-            val saved = if (tmpPath != null) {
-                saveIncoming(fileName) { out ->
-                    File(tmpPath).inputStream().use { it.copyTo(out) }
-                }
-            } else {
-                saveIncoming(fileName) { out ->
-                    session.inputStream.use { it.copyTo(out) }
-                }
+            val saved = saveIncoming(fileName) { out ->
+                copyWithProgress(session.inputStream, out, fileName, total)
             }
 
+            onProgress?.invoke(fileName, total.coerceAtLeast(0L), total.coerceAtLeast(0L))
             onFileReceived?.invoke(saved)
             newFixedLengthResponse(
                 Response.Status.OK,
@@ -60,7 +56,29 @@ class FileHttpServer(private val context: Context) : NanoHTTPD(JoduPorts.FILE_HT
         }
     }
 
-    private fun saveIncoming(fileName: String, write: (java.io.OutputStream) -> Unit): String {
+    private fun copyWithProgress(
+        input: java.io.InputStream,
+        output: OutputStream,
+        fileName: String,
+        total: Long,
+    ) {
+        val buffer = ByteArray(64 * 1024)
+        var transferred = 0L
+        var lastReport = 0L
+        while (true) {
+            val read = input.read(buffer)
+            if (read <= 0) break
+            output.write(buffer, 0, read)
+            transferred += read
+            if (transferred - lastReport >= 256 * 1024 || (total > 0 && transferred >= total)) {
+                lastReport = transferred
+                onProgress?.invoke(fileName, transferred, total.coerceAtLeast(0L))
+            }
+        }
+        onProgress?.invoke(fileName, transferred, if (total > 0) total else transferred)
+    }
+
+    private fun saveIncoming(fileName: String, write: (OutputStream) -> Unit): String {
         val mime = guessMime(fileName)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val values = ContentValues().apply {
@@ -70,16 +88,23 @@ class FileHttpServer(private val context: Context) : NanoHTTPD(JoduPorts.FILE_HT
             }
             val resolver = context.contentResolver
             val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                ?: error("unable to create download entry")
-            resolver.openOutputStream(uri)?.use(write) ?: error("unable to open download stream")
-            values.clear()
-            values.put(MediaStore.Downloads.IS_PENDING, 0)
-            resolver.update(uri, values, null, null)
-            return uri.toString()
+                ?: error("unable to create download entry — grant storage access")
+            try {
+                resolver.openOutputStream(uri)?.use(write) ?: error("unable to open download stream")
+                values.clear()
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                return uri.toString()
+            } catch (e: Exception) {
+                runCatching { resolver.delete(uri, null, null) }
+                throw e
+            }
         }
 
         val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        downloads.mkdirs()
+        if (!downloads.exists() && !downloads.mkdirs()) {
+            error("unable to access Downloads — grant storage permission")
+        }
         val dest = uniqueFile(File(downloads, fileName))
         FileOutputStream(dest).use(write)
         return dest.absolutePath

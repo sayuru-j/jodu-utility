@@ -15,11 +15,12 @@ public sealed class WebSocketHub : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private Task? _acceptTask;
 
-    public event Action? ClientConnected;
+    public event Action<string>? ClientConnected;
     public event Action? ClientDisconnected;
     public event Action<JoduMessage>? MessageReceived;
 
     public bool HasClients => !_clients.IsEmpty;
+    public string? LastClientIp { get; private set; }
 
     public void Start()
     {
@@ -81,8 +82,9 @@ public sealed class WebSocketHub : IDisposable
                 keepAliveInterval: TimeSpan.FromSeconds(20));
 
             _clients[id] = socket;
+            LastClientIp = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString();
             announced = true;
-            ClientConnected?.Invoke();
+            ClientConnected?.Invoke(LastClientIp ?? string.Empty);
             await ReceiveLoopAsync(id, socket);
         }
         catch

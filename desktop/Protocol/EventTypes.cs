@@ -12,6 +12,7 @@ public static class EventTypes
     public const string Discovery = "DISCOVERY";
     public const string PairRequest = "PAIR_REQUEST";
     public const string PairResponse = "PAIR_RESPONSE";
+    public const string FileTransfer = "FILE_TRANSFER";
 }
 
 public static class MediaActions

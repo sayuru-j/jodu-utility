@@ -29,6 +29,8 @@ public sealed class MainForm : Form
     private string? _outgoingPairDeviceId;
     private string _pairStatus = "idle";
     private bool _connected;
+    private FileTransferPayload? _transfer;
+    private const int AndroidFileHttpPort = 19286;
 
     public MainForm()
     {
@@ -138,9 +140,14 @@ public sealed class MainForm : Form
                 if (_peer is not null)
                 {
                     var fresh = peers.FirstOrDefault(p =>
-                        string.Equals(p.Ip, _peer.Ip, StringComparison.OrdinalIgnoreCase));
+                        string.Equals(p.Ip, _peer.Ip, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(p.DeviceId, _peer.DeviceId, StringComparison.OrdinalIgnoreCase));
                     if (fresh is not null)
-                        _peer = fresh;
+                        _peer = NormalizePhonePeer(fresh);
+                }
+                else if (_connected)
+                {
+                    EnsurePeerFromLan();
                 }
                 PushUiState();
             });
@@ -184,15 +191,15 @@ public sealed class MainForm : Form
 
                 if (res.Accepted == true)
                 {
-                    _peer = new DiscoveryPayload
+                    _peer = NormalizePhonePeer(new DiscoveryPayload
                     {
                         DeviceId = res.FromDeviceId,
                         DeviceName = res.FromDeviceName,
                         Role = res.FromRole,
                         Ip = res.FromIp,
-                        WsPort = res.WsPort,
+                        WsPort = res.WsPort > 0 ? res.WsPort : JoduPorts.WebSocket,
                         HttpPort = res.HttpPort
-                    };
+                    });
                     _pairStatus = "accepted";
                     _outgoingPairDeviceId = null;
                     _toasts.ShowInfo("JODU", $"Paired with {res.FromDeviceName}");
@@ -208,7 +215,7 @@ public sealed class MainForm : Form
             });
         };
 
-        _hub.ClientConnected += () =>
+        _hub.ClientConnected += remoteIp =>
         {
             BeginInvoke(() =>
             {
@@ -216,6 +223,19 @@ public sealed class MainForm : Form
                 _pairStatus = "linked";
                 _incomingPair = null;
                 _outgoingPairDeviceId = null;
+                if (_peer is null || string.IsNullOrWhiteSpace(_peer.Ip))
+                {
+                    EnsurePeerFromLan(remoteIp);
+                }
+                else
+                {
+                    _peer = NormalizePhonePeer(_peer);
+                    if (!string.IsNullOrWhiteSpace(remoteIp) &&
+                        !string.Equals(_peer.Ip, remoteIp, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _peer.Ip = remoteIp;
+                    }
+                }
                 UpdateTrayStatus();
                 _toasts.ShowInfo("JODU", $"Paired with {_peer?.DeviceName ?? "phone"}");
                 PushUiState();
@@ -235,14 +255,90 @@ public sealed class MainForm : Form
         };
 
         _hub.MessageReceived += OnMessage;
+        _files.FileReceiveProgress += (fileName, transferred, total) =>
+        {
+            BeginInvoke(() =>
+            {
+                var percent = total > 0 ? (int)Math.Clamp(transferred * 100 / total, 0, 100) : 0;
+                _transfer = new FileTransferPayload
+                {
+                    FileName = fileName,
+                    Direction = "receive",
+                    BytesTransferred = transferred,
+                    TotalBytes = total,
+                    Percent = percent,
+                    Status = "progress"
+                };
+                _ = BroadcastTransferAsync(_transfer);
+                PushUiState();
+            });
+        };
         _files.FileReceived += path =>
         {
             BeginInvoke(() =>
             {
-                _toasts.ShowInfo("File received", Path.GetFileName(path));
+                var name = Path.GetFileName(path);
+                _transfer = new FileTransferPayload
+                {
+                    FileName = name,
+                    Direction = "receive",
+                    Percent = 100,
+                    Status = "done"
+                };
+                _ = BroadcastTransferAsync(_transfer);
+                _toasts.ShowInfo("File received", name);
                 PushUiState();
             });
         };
+    }
+
+    private async Task BroadcastTransferAsync(FileTransferPayload payload)
+    {
+        try
+        {
+            await _hub.BroadcastAsync(JoduMessage.Create(EventTypes.FileTransfer, payload));
+        }
+        catch
+        {
+            // best-effort progress mirror
+        }
+    }
+
+    private void EnsurePeerFromLan(string? preferredIp = null)
+    {
+        DiscoveryPayload? match = null;
+        if (!string.IsNullOrWhiteSpace(preferredIp))
+        {
+            match = _lanPeers.FirstOrDefault(p =>
+                string.Equals(p.Ip, preferredIp, StringComparison.OrdinalIgnoreCase));
+        }
+
+        match ??= _lanPeers.FirstOrDefault(p =>
+            string.Equals(p.Role, "android", StringComparison.OrdinalIgnoreCase));
+
+        if (match is null && !string.IsNullOrWhiteSpace(preferredIp))
+        {
+            match = new DiscoveryPayload
+            {
+                DeviceId = "phone",
+                DeviceName = "phone",
+                Role = "android",
+                Ip = preferredIp!,
+                WsPort = JoduPorts.WebSocket,
+                HttpPort = AndroidFileHttpPort
+            };
+        }
+
+        if (match is not null)
+            _peer = NormalizePhonePeer(match);
+    }
+
+    private static DiscoveryPayload NormalizePhonePeer(DiscoveryPayload peer)
+    {
+        peer.HttpPort = peer.HttpPort > 0 && peer.HttpPort != JoduPorts.FileHttp
+            ? peer.HttpPort
+            : AndroidFileHttpPort;
+        return peer;
     }
 
     protected override async void OnLoad(EventArgs e)
@@ -415,15 +511,15 @@ public sealed class MainForm : Form
     {
         if (_incomingPair is null) return;
         var req = _incomingPair;
-        _peer = new DiscoveryPayload
+        _peer = NormalizePhonePeer(new DiscoveryPayload
         {
             DeviceId = req.FromDeviceId,
             DeviceName = req.FromDeviceName,
             Role = req.FromRole,
             Ip = req.FromIp,
-            WsPort = req.WsPort,
+            WsPort = req.WsPort > 0 ? req.WsPort : JoduPorts.WebSocket,
             HttpPort = req.HttpPort
-        };
+        });
         _discovery.RespondPair(req, accepted: true);
         _incomingPair = null;
         _pairStatus = "accepted";
@@ -528,6 +624,22 @@ public sealed class MainForm : Form
                     _media = message.GetPayload<MediaStatePayload>();
                     PushUiState();
                     break;
+
+                case EventTypes.FileTransfer:
+                {
+                    var transfer = message.GetPayload<FileTransferPayload>();
+                    if (transfer is not null)
+                    {
+                        // Phone reports its direction; flip for desktop wording.
+                        if (string.Equals(transfer.Direction, "send", StringComparison.OrdinalIgnoreCase))
+                            transfer.Direction = "receive";
+                        else if (string.Equals(transfer.Direction, "receive", StringComparison.OrdinalIgnoreCase))
+                            transfer.Direction = "send";
+                        _transfer = transfer;
+                        PushUiState();
+                    }
+                    break;
+                }
             }
         });
     }
@@ -536,10 +648,25 @@ public sealed class MainForm : Form
     {
         if (_webView.CoreWebView2 is null) return;
 
+        if (_connected && (_peer is null || string.IsNullOrWhiteSpace(_peer.Ip)))
+            EnsurePeerFromLan(_hub.LastClientIp);
+
+        var peer = _peer is null ? null : new
+        {
+            deviceId = _peer.DeviceId,
+            deviceName = _peer.DeviceName,
+            role = _peer.Role,
+            ip = _peer.Ip,
+            wsPort = _peer.WsPort > 0 ? _peer.WsPort : JoduPorts.WebSocket,
+            httpPort = _peer.HttpPort > 0 && _peer.HttpPort != JoduPorts.FileHttp
+                ? _peer.HttpPort
+                : AndroidFileHttpPort
+        };
+
         var state = new
         {
             connected = _connected,
-            peer = _peer,
+            peer,
             peers = _lanPeers,
             incomingPair = _incomingPair is null ? null : new
             {
@@ -552,6 +679,16 @@ public sealed class MainForm : Form
             pairStatus = _pairStatus,
             telemetry = _telemetry,
             media = _media,
+            transfer = _transfer is null ? null : new
+            {
+                fileName = _transfer.FileName,
+                direction = _transfer.Direction,
+                bytesTransferred = _transfer.BytesTransferred,
+                totalBytes = _transfer.TotalBytes,
+                percent = _transfer.Percent,
+                status = _transfer.Status,
+                error = _transfer.Error
+            },
             clipboardPreview = Truncate(_clipboard.MobileClipboard, 80),
             httpPort = JoduPorts.FileHttp,
             wsPort = JoduPorts.WebSocket,

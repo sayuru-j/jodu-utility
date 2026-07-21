@@ -13,6 +13,7 @@ public sealed class FileTransferServer : IDisposable
     private Task? _loop;
 
     public event Action<string>? FileReceived;
+    public event Action<string, long, long>? FileReceiveProgress;
 
     public FileTransferServer(string? downloadDir = null)
     {
@@ -117,6 +118,9 @@ public sealed class FileTransferServer : IDisposable
                 {
                     var remaining = contentLength;
                     var buffer = new byte[64 * 1024];
+                    var transferred = 0L;
+                    var lastReport = 0L;
+                    FileReceiveProgress?.Invoke(fileName, 0, contentLength);
                     while (remaining > 0)
                     {
                         var toRead = (int)Math.Min(buffer.Length, remaining);
@@ -124,17 +128,26 @@ public sealed class FileTransferServer : IDisposable
                         if (read <= 0) break;
                         await fs.WriteAsync(buffer.AsMemory(0, read), _cts.Token);
                         remaining -= read;
+                        transferred += read;
+                        if (transferred - lastReport >= 256 * 1024 || remaining == 0)
+                        {
+                            lastReport = transferred;
+                            FileReceiveProgress?.Invoke(fileName, transferred, contentLength);
+                        }
                     }
                 }
                 else
                 {
+                    FileReceiveProgress?.Invoke(fileName, 0, 0);
                     // No Content-Length — read until the client closes (chunked/unknown).
                     await stream.CopyToAsync(fs, _cts.Token);
+                    FileReceiveProgress?.Invoke(fileName, fs.Length, fs.Length);
                 }
             }
 
             var json = $"{{\"ok\":true,\"path\":\"{dest.Replace("\\", "\\\\")}\"}}";
             await WriteResponseAsync(stream, 200, "application/json", json);
+            FileReceiveProgress?.Invoke(fileName, contentLength > 0 ? contentLength : 0, contentLength);
             FileReceived?.Invoke(dest);
         }
         catch
