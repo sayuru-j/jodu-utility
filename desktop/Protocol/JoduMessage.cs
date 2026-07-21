@@ -47,6 +47,8 @@ public sealed class TelemetryPayload
     public int BatteryPercent { get; set; }
     public bool IsCharging { get; set; }
     public string? WifiSsid { get; set; }
+    public bool WifiConnected { get; set; }
+    public int? WifiRssi { get; set; }
     public string? DeviceName { get; set; }
 }
 

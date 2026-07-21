@@ -2,6 +2,8 @@ export type Telemetry = {
   batteryPercent: number
   isCharging: boolean
   wifiSsid?: string | null
+  wifiConnected?: boolean
+  wifiRssi?: number | null
   deviceName?: string | null
 }
 

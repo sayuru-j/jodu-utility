@@ -316,6 +316,16 @@ class MainActivity : AppCompatActivity() {
             ) {
                 needed += Manifest.permission.POST_NOTIFICATIONS
             }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.NEARBY_WIFI_DEVICES)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed += Manifest.permission.NEARBY_WIFI_DEVICES
+            }
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed += Manifest.permission.ACCESS_FINE_LOCATION
         }
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), 10)

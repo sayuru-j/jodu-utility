@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import type { AppState, Peer } from './bridge'
+import { AnimatePresence, motion } from 'framer-motion'
+import type { AppState, Peer, Telemetry } from './bridge'
 import { sendCommand, subscribeState, uploadFiles } from './bridge'
 import './App.css'
 
@@ -10,6 +11,26 @@ const initial: AppState = {
   maximized: false,
   peers: [],
   pairStatus: 'idle',
+}
+
+const fadeUp = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+}
+
+const stagger = {
+  animate: { transition: { staggerChildren: 0.06, delayChildren: 0.04 } },
+}
+
+function wifiLabel(telemetry?: Telemetry | null): string {
+  if (!telemetry) return '—'
+  if (telemetry.wifiSsid) return telemetry.wifiSsid
+  if (telemetry.wifiConnected) {
+    if (telemetry.wifiRssi != null) return `Wi‑Fi · ${telemetry.wifiRssi} dBm`
+    return 'Wi‑Fi'
+  }
+  return 'offline'
 }
 
 export default function App() {
@@ -36,7 +57,7 @@ export default function App() {
 
   const battery = state.telemetry?.batteryPercent ?? null
   const charging = state.telemetry?.isCharging ?? false
-  const ssid = state.telemetry?.wifiSsid || '—'
+  const ssid = wifiLabel(state.telemetry)
   const device = state.telemetry?.deviceName || state.peer?.deviceName || 'phone'
   const playing = state.media?.isPlaying ?? false
   const peers = useMemo(() => {
@@ -67,7 +88,12 @@ export default function App() {
   }
 
   return (
-    <div className={`app ${settingsOpen ? 'settings-open' : ''}`}>
+    <motion.div
+      className={`app ${settingsOpen ? 'settings-open' : ''}`}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.35 }}
+    >
       <div
         className="titlebar"
         onMouseDown={(e) => {
@@ -78,7 +104,20 @@ export default function App() {
         onDoubleClick={() => sendCommand({ action: 'WINDOW_MAXIMIZE' })}
       >
         <div className="titlebar-brand">
-          <span className="title-glyph" aria-hidden />
+          <motion.span
+            className="title-glyph"
+            aria-hidden
+            animate={
+              state.connected
+                ? { scale: [1, 1.25, 1], opacity: [1, 0.7, 1] }
+                : { scale: 1, opacity: 1 }
+            }
+            transition={
+              state.connected
+                ? { duration: 2.2, repeat: Infinity, ease: 'easeInOut' }
+                : { duration: 0.2 }
+            }
+          />
           <span className="title-name">JODU</span>
         </div>
         <div className={`title-link ${state.connected ? 'on' : ''}`}>
@@ -120,236 +159,84 @@ export default function App() {
         </div>
       </div>
 
-      {state.incomingPair ? (
-        <section className="pair-banner" aria-label="Incoming pair request">
-          <div>
-            <span className="label">pair request</span>
-            <strong>{state.incomingPair.deviceName}</strong>
-            <span className="sub">{state.incomingPair.ip}</span>
-          </div>
-          <div className="pair-actions">
-            <button type="button" onClick={() => sendCommand({ action: 'PAIR_REJECT' })}>
-              decline
-            </button>
-            <button
-              type="button"
-              className="solid"
-              onClick={() => sendCommand({ action: 'PAIR_ACCEPT' })}
-            >
-              accept
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {settingsOpen ? (
-        <section className="settings" aria-label="Settings">
-          <div className="settings-head">
-            <h2>settings</h2>
-            <button type="button" className="text-btn" onClick={() => setSettingsOpen(false)}>
-              close
-            </button>
-          </div>
-          <div className="settings-grid">
-            <div className="settings-row">
-              <span className="label">hotkey</span>
-              <strong>ctrl + shift + c</strong>
-              <span className="hint">copy latest phone clipboard</span>
+      <AnimatePresence mode="popLayout">
+        {state.incomingPair ? (
+          <motion.section
+            key="pair"
+            className="pair-banner"
+            aria-label="Incoming pair request"
+            {...fadeUp}
+            transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+            layout
+          >
+            <div>
+              <span className="label">pair request</span>
+              <strong>{state.incomingPair.deviceName}</strong>
+              <span className="sub">{state.incomingPair.ip}</span>
             </div>
-            <div className="settings-row">
-              <span className="label">websocket</span>
-              <strong>{state.wsPort}</strong>
-              <span className="hint">desktop listener</span>
-            </div>
-            <div className="settings-row">
-              <span className="label">file http</span>
-              <strong>{state.httpPort}</strong>
-              <span className="hint">downloads receiver</span>
-            </div>
-            <div className="settings-row">
-              <span className="label">peer</span>
-              <strong className="truncate">
-                {state.peer?.ip ? `${state.peer.ip}:${state.peer.httpPort}` : 'none'}
-              </strong>
-              <span className="hint">{state.connected ? 'paired' : 'not paired'}</span>
-            </div>
-            <div className="settings-row">
-              <span className="label">docs</span>
-              <strong>local guides</strong>
-              <span className="hint">architecture · protocol · setup</span>
-            </div>
-          </div>
-          <div className="settings-actions">
-            <button type="button" onClick={() => sendCommand({ action: 'OPEN_DOCS' })}>
-              open docs
-            </button>
-            <button
-              type="button"
-              disabled={!state.clipboardPreview}
-              onClick={() => sendCommand({ action: 'COPY_MOBILE_CLIPBOARD' })}
-            >
-              copy clip
-            </button>
-            <button
-              type="button"
-              className="solid"
-              disabled={!state.connected}
-              onClick={() => sendCommand({ action: 'PING' })}
-            >
-              ping phone
-            </button>
-          </div>
-        </section>
-      ) : (
-        <>
-          <header className="top">
-            <div className="brand-block">
-              <h1>JODU</h1>
-              <p>pair</p>
-            </div>
-          </header>
-
-          <section className="cell devices" aria-label="Devices on LAN">
-            <div className="devices-head">
-              <span className="label">devices on lan</span>
-              <span className="sub">
-                {state.pairStatus === 'outgoing'
-                  ? 'waiting for accept…'
-                  : state.connected
-                    ? 'paired'
-                    : 'tap to request pair'}
-              </span>
-            </div>
-            {peers.length === 0 ? (
-              <p className="devices-empty">scanning for phones…</p>
-            ) : (
-              <ul className="device-list">
-                {peers.map((p) => {
-                  const pending = state.outgoingPairDeviceId === p.deviceId
-                  const paired = state.connected && state.peer?.deviceId === p.deviceId
-                  return (
-                    <li key={p.deviceId}>
-                      <button
-                        type="button"
-                        className={`device-row ${paired ? 'paired' : ''} ${pending ? 'pending' : ''}`}
-                        disabled={state.connected || state.pairStatus === 'outgoing'}
-                        onClick={() =>
-                          sendCommand({ action: 'PAIR_REQUEST', value: p.deviceId })
-                        }
-                      >
-                        <span className="device-dot" aria-hidden />
-                        <span className="device-meta">
-                          <strong className="truncate">{p.deviceName}</strong>
-                          <span className="sub truncate">
-                            {p.ip} · {p.role}
-                          </span>
-                        </span>
-                        <span className="device-action">
-                          {paired ? 'paired' : pending ? '…' : 'pair'}
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </section>
-
-          <main className="grid">
-            <section className="cell stats" aria-label="Phone status">
-              <div className="stat">
-                <span className="label">battery</span>
-                <strong>
-                  {battery != null ? `${battery}%` : '—'}
-                  {charging ? <span className="chg"> chg</span> : null}
-                </strong>
-              </div>
-              <div className="stat">
-                <span className="label">wifi</span>
-                <strong className="truncate">{ssid}</strong>
-              </div>
-              <div
-                className="meter"
-                style={{ '--level': `${battery ?? 0}%` } as CSSProperties}
-                aria-hidden
-              />
-            </section>
-
-            <section className="cell media" aria-label="Media">
-              <div className="media-meta">
-                <span className="label">now</span>
-                <strong className="truncate">{state.media?.title || 'idle'}</strong>
-                <span className="sub truncate">{state.media?.artist || 'no track'}</span>
-              </div>
-              <div className="transport">
-                <button
-                  type="button"
-                  disabled={!state.connected}
-                  onClick={() => sendCommand({ action: 'MEDIA', value: 'PREVIOUS' })}
-                  aria-label="Previous"
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  className="play"
-                  disabled={!state.connected}
-                  onClick={() =>
-                    sendCommand({
-                      action: 'MEDIA',
-                      value: playing ? 'PAUSE' : 'PLAY',
-                    })
-                  }
-                  aria-label={playing ? 'Pause' : 'Play'}
-                >
-                  {playing ? 'II' : '▶'}
-                </button>
-                <button
-                  type="button"
-                  disabled={!state.connected}
-                  onClick={() => sendCommand({ action: 'MEDIA', value: 'NEXT' })}
-                  aria-label="Next"
-                >
-                  ›
-                </button>
-              </div>
-            </section>
-
-            <section
-              className={`cell drop ${dragging ? 'active' : ''}`}
-              onDragEnter={(e) => {
-                e.preventDefault()
-                setDragging(true)
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault()
-                void onDrop(e.dataTransfer.files)
-              }}
-            >
-              <span className="label">files</span>
-              <strong>drop to phone</strong>
-              <span className="sub">phone can send back to this pc · downloads</span>
-              <label className="pick">
-                browse
-                <input
-                  type="file"
-                  multiple
-                  onChange={(e) => void onDrop(e.target.files)}
-                />
-              </label>
-              {note ? <span className="note">{note}</span> : null}
-            </section>
-
-            <section className="cell tools">
+            <div className="pair-actions">
+              <button type="button" onClick={() => sendCommand({ action: 'PAIR_REJECT' })}>
+                decline
+              </button>
               <button
                 type="button"
                 className="solid"
-                disabled={!state.connected}
-                onClick={() => sendCommand({ action: 'PING' })}
+                onClick={() => sendCommand({ action: 'PAIR_ACCEPT' })}
               >
-                ping
+                accept
+              </button>
+            </div>
+          </motion.section>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence mode="wait">
+        {settingsOpen ? (
+          <motion.section
+            key="settings"
+            className="settings"
+            aria-label="Settings"
+            {...fadeUp}
+            transition={{ duration: 0.28 }}
+          >
+            <div className="settings-head">
+              <h2>settings</h2>
+              <button type="button" className="text-btn" onClick={() => setSettingsOpen(false)}>
+                close
+              </button>
+            </div>
+            <div className="settings-grid">
+              <div className="settings-row">
+                <span className="label">hotkey</span>
+                <strong>ctrl + shift + c</strong>
+                <span className="hint">copy latest phone clipboard</span>
+              </div>
+              <div className="settings-row">
+                <span className="label">websocket</span>
+                <strong>{state.wsPort}</strong>
+                <span className="hint">desktop listener</span>
+              </div>
+              <div className="settings-row">
+                <span className="label">file http</span>
+                <strong>{state.httpPort}</strong>
+                <span className="hint">downloads receiver</span>
+              </div>
+              <div className="settings-row">
+                <span className="label">peer</span>
+                <strong className="truncate">
+                  {state.peer?.ip ? `${state.peer.ip}:${state.peer.httpPort}` : 'none'}
+                </strong>
+                <span className="hint">{state.connected ? 'paired' : 'not paired'}</span>
+              </div>
+              <div className="settings-row">
+                <span className="label">docs</span>
+                <strong>local guides</strong>
+                <span className="hint">architecture · protocol · setup</span>
+              </div>
+            </div>
+            <div className="settings-actions">
+              <button type="button" onClick={() => sendCommand({ action: 'OPEN_DOCS' })}>
+                open docs
               </button>
               <button
                 type="button"
@@ -358,25 +245,234 @@ export default function App() {
               >
                 copy clip
               </button>
-              <p className="clip truncate" title={state.clipboardPreview || ''}>
-                {state.clipboardPreview || 'clipboard empty'}
-              </p>
-            </section>
-          </main>
+              <button
+                type="button"
+                className="solid"
+                disabled={!state.connected}
+                onClick={() => sendCommand({ action: 'PING' })}
+              >
+                ping phone
+              </button>
+            </div>
+          </motion.section>
+        ) : (
+          <motion.div
+            key="home"
+            className="home-stack"
+            variants={stagger}
+            initial="initial"
+            animate="animate"
+            exit={{ opacity: 0, y: 8 }}
+          >
+            <motion.header className="top" variants={fadeUp} transition={{ duration: 0.3 }}>
+              <div className="brand-block">
+                <h1>JODU</h1>
+                <p>pair</p>
+              </div>
+            </motion.header>
 
-          <footer className="foot">
-            <span>ws {state.wsPort}</span>
-            <span className="dot-sep" />
-            <span>http {state.httpPort}</span>
-            {state.peer?.ip ? (
-              <>
-                <span className="dot-sep" />
-                <span>{state.peer.ip}</span>
-              </>
-            ) : null}
-          </footer>
-        </>
-      )}
-    </div>
+            <motion.section
+              className="cell devices"
+              aria-label="Devices on LAN"
+              variants={fadeUp}
+              transition={{ duration: 0.32 }}
+            >
+              <div className="devices-head">
+                <span className="label">devices on lan</span>
+                <span className="sub">
+                  {state.pairStatus === 'outgoing'
+                    ? 'waiting for accept…'
+                    : state.connected
+                      ? 'paired'
+                      : 'tap to request pair'}
+                </span>
+              </div>
+              {peers.length === 0 ? (
+                <p className="devices-empty">scanning for phones…</p>
+              ) : (
+                <ul className="device-list">
+                  <AnimatePresence initial={false}>
+                    {peers.map((p, i) => {
+                      const pending = state.outgoingPairDeviceId === p.deviceId
+                      const paired = state.connected && state.peer?.deviceId === p.deviceId
+                      return (
+                        <motion.li
+                          key={p.deviceId}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 8 }}
+                          transition={{ delay: i * 0.04, duration: 0.25 }}
+                          layout
+                        >
+                          <button
+                            type="button"
+                            className={`device-row ${paired ? 'paired' : ''} ${pending ? 'pending' : ''}`}
+                            disabled={state.connected || state.pairStatus === 'outgoing'}
+                            onClick={() =>
+                              sendCommand({ action: 'PAIR_REQUEST', value: p.deviceId })
+                            }
+                          >
+                            <span className="device-dot" aria-hidden />
+                            <span className="device-meta">
+                              <strong className="truncate">{p.deviceName}</strong>
+                              <span className="sub truncate">
+                                {p.ip} · {p.role}
+                              </span>
+                            </span>
+                            <span className="device-action">
+                              {paired ? 'paired' : pending ? '…' : 'pair'}
+                            </span>
+                          </button>
+                        </motion.li>
+                      )
+                    })}
+                  </AnimatePresence>
+                </ul>
+              )}
+            </motion.section>
+
+            <motion.main className="grid" variants={fadeUp} transition={{ duration: 0.34 }}>
+              <section className="cell stats" aria-label="Phone status">
+                <div className="stat">
+                  <span className="label">battery</span>
+                  <strong>
+                    {battery != null ? `${battery}%` : '—'}
+                    {charging ? <span className="chg"> chg</span> : null}
+                  </strong>
+                </div>
+                <div className="stat">
+                  <span className="label">wifi</span>
+                  <strong className="truncate" title={ssid}>
+                    {ssid}
+                  </strong>
+                </div>
+                <motion.div
+                  className="meter"
+                  style={{ '--level': `${battery ?? 0}%` } as CSSProperties}
+                  aria-hidden
+                  layout
+                />
+              </section>
+
+              <section className="cell media" aria-label="Media">
+                <div className="media-meta">
+                  <span className="label">now</span>
+                  <strong className="truncate">{state.media?.title || 'idle'}</strong>
+                  <span className="sub truncate">{state.media?.artist || 'no track'}</span>
+                </div>
+                <div className="transport">
+                  <button
+                    type="button"
+                    disabled={!state.connected}
+                    onClick={() => sendCommand({ action: 'MEDIA', value: 'PREVIOUS' })}
+                    aria-label="Previous"
+                  >
+                    ‹
+                  </button>
+                  <motion.button
+                    type="button"
+                    className="play"
+                    disabled={!state.connected}
+                    whileTap={{ scale: 0.92 }}
+                    whileHover={state.connected ? { scale: 1.04 } : undefined}
+                    onClick={() =>
+                      sendCommand({
+                        action: 'MEDIA',
+                        value: playing ? 'PAUSE' : 'PLAY',
+                      })
+                    }
+                    aria-label={playing ? 'Pause' : 'Play'}
+                  >
+                    {playing ? 'II' : '▶'}
+                  </motion.button>
+                  <button
+                    type="button"
+                    disabled={!state.connected}
+                    onClick={() => sendCommand({ action: 'MEDIA', value: 'NEXT' })}
+                    aria-label="Next"
+                  >
+                    ›
+                  </button>
+                </div>
+              </section>
+
+              <motion.section
+                className={`cell drop ${dragging ? 'active' : ''}`}
+                onDragEnter={(e) => {
+                  e.preventDefault()
+                  setDragging(true)
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  void onDrop(e.dataTransfer.files)
+                }}
+                animate={dragging ? { scale: 1.01 } : { scale: 1 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              >
+                <span className="label">files</span>
+                <strong>drop to phone</strong>
+                <span className="sub">phone can send back to this pc · downloads</span>
+                <label className="pick">
+                  browse
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(e) => void onDrop(e.target.files)}
+                  />
+                </label>
+                <AnimatePresence>
+                  {note ? (
+                    <motion.span
+                      className="note"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      {note}
+                    </motion.span>
+                  ) : null}
+                </AnimatePresence>
+              </motion.section>
+
+              <section className="cell tools">
+                <motion.button
+                  type="button"
+                  className="solid"
+                  disabled={!state.connected}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => sendCommand({ action: 'PING' })}
+                >
+                  ping
+                </motion.button>
+                <button
+                  type="button"
+                  disabled={!state.clipboardPreview}
+                  onClick={() => sendCommand({ action: 'COPY_MOBILE_CLIPBOARD' })}
+                >
+                  copy clip
+                </button>
+                <p className="clip truncate" title={state.clipboardPreview || ''}>
+                  {state.clipboardPreview || 'clipboard empty'}
+                </p>
+              </section>
+            </motion.main>
+
+            <motion.footer className="foot" variants={fadeUp}>
+              <span>ws {state.wsPort}</span>
+              <span className="dot-sep" />
+              <span>http {state.httpPort}</span>
+              {state.peer?.ip ? (
+                <>
+                  <span className="dot-sep" />
+                  <span>{state.peer.ip}</span>
+                </>
+              ) : null}
+            </motion.footer>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   )
 }

@@ -19,6 +19,8 @@ data class TelemetryPayload(
     @SerialName("batteryPercent") val batteryPercent: Int,
     @SerialName("isCharging") val isCharging: Boolean,
     @SerialName("wifiSsid") val wifiSsid: String? = null,
+    @SerialName("wifiConnected") val wifiConnected: Boolean = false,
+    @SerialName("wifiRssi") val wifiRssi: Int? = null,
     @SerialName("deviceName") val deviceName: String? = null,
 )
 

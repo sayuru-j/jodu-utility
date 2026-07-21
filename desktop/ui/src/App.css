@@ -8,22 +8,19 @@
   flex-direction: column;
   gap: 0.55rem;
   overflow: hidden;
-  animation: in 0.45s ease both;
+}
+
+.home-stack {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  overflow: hidden;
 }
 
 .app.settings-open {
   gap: 0.55rem;
-}
-
-@keyframes in {
-  from {
-    opacity: 0;
-    filter: blur(4px);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
 }
 
 .titlebar {
@@ -51,8 +48,9 @@
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--accent);
   flex-shrink: 0;
+  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .title-name {
@@ -93,8 +91,8 @@
 }
 
 .title-link.on .glyph {
-  background: var(--glyph);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
   animation: blink 1.8s steps(1) infinite;
 }
 
@@ -282,20 +280,20 @@
 }
 
 .settings-actions button:hover:not(:disabled) {
-  background: var(--fg);
+  background: var(--accent);
   color: var(--bg);
-  border-color: var(--fg);
+  border-color: var(--accent);
 }
 
 .settings-actions .solid {
-  background: var(--fg);
+  background: var(--accent);
   color: var(--bg);
-  border-color: var(--fg);
+  border-color: var(--accent);
 }
 
 .settings-actions .solid:hover:not(:disabled) {
   background: transparent;
-  color: var(--fg);
+  color: var(--accent);
 }
 
 .top {
@@ -339,8 +337,8 @@
   gap: 0.75rem;
   flex-wrap: wrap;
   padding: 0.7rem 0.85rem;
-  border: 1px solid var(--fg);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
 }
 
 .pair-banner strong {
@@ -366,9 +364,9 @@
 
 .pair-actions .solid,
 .pair-actions button.solid {
-  background: var(--fg);
+  background: var(--accent);
   color: var(--bg);
-  border-color: var(--fg);
+  border-color: var(--accent);
 }
 
 .devices {
@@ -415,12 +413,13 @@
 }
 
 .device-row:hover:not(:disabled) {
-  border-color: var(--fg);
-  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .device-row.paired {
-  border-color: var(--fg);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .device-row.pending {
@@ -435,7 +434,8 @@
 }
 
 .device-row.paired .device-dot {
-  background: var(--fg);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .device-meta {
@@ -520,7 +520,7 @@
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--level, 0%);
-  background: var(--fg);
+  background: linear-gradient(90deg, var(--accent), #5eead4);
   transition: width 0.35s ease;
 }
 
@@ -563,9 +563,9 @@
 .transport button:hover:not(:disabled),
 .tools button:hover:not(:disabled),
 .pick:hover {
-  background: var(--fg);
+  background: var(--accent);
   color: var(--bg);
-  border-color: var(--fg);
+  border-color: var(--accent);
 }
 
 .transport .play {
@@ -579,8 +579,8 @@
 }
 
 .drop.active {
-  border-color: var(--fg);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .drop strong {
@@ -611,14 +611,14 @@
 }
 
 .tools .solid {
-  background: var(--fg);
+  background: var(--accent);
   color: var(--bg);
-  border-color: var(--fg);
+  border-color: var(--accent);
 }
 
 .tools .solid:hover:not(:disabled) {
   background: transparent;
-  color: var(--fg);
+  color: var(--accent);
 }
 
 .clip {

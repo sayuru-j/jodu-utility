@@ -11,7 +11,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
@@ -35,6 +34,7 @@ import com.jodu.app.protocol.MediaStatePayload
 import com.jodu.app.protocol.OtpPayload
 import com.jodu.app.protocol.PairPayload
 import com.jodu.app.protocol.TelemetryPayload
+import com.jodu.app.util.WifiInfoHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -453,16 +453,16 @@ class JoduForegroundService : Service() {
             status == BatteryManager.BATTERY_STATUS_FULL
         val percent = if (level >= 0 && scale > 0) (level * 100) / scale else 0
 
-        val wifi = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
-        @Suppress("DEPRECATION")
-        val ssid = wifi.connectionInfo?.ssid?.trim('"')?.takeIf { it != "<unknown ssid>" }
+        val wifi = WifiInfoHelper.snapshot(this)
 
         socket.send(
             EventTypes.TELEMETRY,
             TelemetryPayload(
                 batteryPercent = percent,
                 isCharging = charging,
-                wifiSsid = ssid,
+                wifiSsid = wifi.ssid,
+                wifiConnected = wifi.connected,
+                wifiRssi = wifi.rssi,
                 deviceName = Build.MODEL,
             ),
         )
