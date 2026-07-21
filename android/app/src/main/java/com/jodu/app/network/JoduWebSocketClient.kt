@@ -52,7 +52,12 @@ class JoduWebSocketClient(
     }
 
     inline fun <reified T> send(type: String, payload: T? = null) {
-        socket?.send(JoduJson.message(type, payload))
+        sendText(JoduJson.message(type, payload))
+    }
+
+    @PublishedApi
+    internal fun sendText(json: String) {
+        socket?.send(json)
     }
 
     private fun open() {
