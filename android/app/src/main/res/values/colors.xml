@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ink">#0B1F24</color>
-    <color name="teal">#1FA7A0</color>
-    <color name="foam">#F4FBF9</color>
-    <color name="mist">#E8F3F1</color>
+    <color name="bg">#0A0A0A</color>
+    <color name="bg_elev">#111111</color>
+    <color name="fg">#F2F2F2</color>
+    <color name="muted">#7A7A7A</color>
+    <color name="line">#2A2A2A</color>
+    <color name="glyph">#FFFFFF</color>
+    <color name="danger">#E81123</color>
+
+    <!-- legacy aliases kept for any leftover refs -->
+    <color name="ink">@color/fg</color>
+    <color name="teal">@color/fg</color>
+    <color name="foam">@color/bg</color>
+    <color name="mist">@color/bg_elev</color>
 </resources>

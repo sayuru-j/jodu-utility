@@ -1,7 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">JODU</string>
+    <string name="tagline">pair</string>
     <string name="service_channel">JODU Bridge</string>
-    <string name="service_running">Paired over local Wi-Fi</string>
-    <string name="service_waiting">Waiting for desktop…</string>
+    <string name="service_running">linked over lan</string>
+    <string name="service_waiting">waiting for desktop</string>
+    <string name="status_starting">starting bridge…</string>
+    <string name="status_running">bridge running · looking for desktop</string>
+    <string name="status_linked">linked · keep notification access on for otp</string>
+    <string name="action_start">start bridge</string>
+    <string name="action_notifications">otp notification access</string>
+    <string name="hint_bridge">clipboard · otp · media · files · ping stay live while the service is active</string>
+    <string name="label_status">status</string>
+    <string name="label_bridge">bridge</string>
+    <string name="label_access">access</string>
+    <string name="ports_footer">ws 19284 · http 19286 · discovery 19283</string>
 </resources>

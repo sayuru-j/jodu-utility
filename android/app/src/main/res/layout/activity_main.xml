@@ -3,78 +3,233 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/foam"
-    android:padding="24dp">
+    android:background="@color/bg"
+    android:paddingStart="20dp"
+    android:paddingTop="16dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="16dp">
+
+    <!-- top bar -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <View
+            android:layout_width="7dp"
+            android:layout_height="7dp"
+            android:background="@drawable/bg_glyph_on" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.18"
+            android:text="@string/app_name"
+            android:textColor="@color/fg"
+            android:textSize="12sp" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <LinearLayout
+            android:id="@+id/linkRow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <View
+                android:id="@+id/linkGlyph"
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:background="@drawable/bg_glyph" />
+
+            <TextView
+                android:id="@+id/linkLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.06"
+                android:text="@string/service_waiting"
+                android:textColor="@color/muted"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <View
+        android:id="@+id/topRule"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_marginTop="14dp"
+        android:background="@color/line"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topBar" />
 
     <TextView
         android:id="@+id/brand"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:letterSpacing="-0.03"
+        android:layout_marginTop="20dp"
+        android:letterSpacing="-0.04"
         android:text="@string/app_name"
-        android:textColor="@color/ink"
+        android:textColor="@color/fg"
         android:textSize="48sp"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/topRule" />
 
     <TextView
         android:id="@+id/tagline"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="Pair with your Windows PC over local Wi-Fi."
-        android:textColor="@color/ink"
-        android:textSize="16sp"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="4dp"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.28"
+        android:text="@string/tagline"
+        android:textAllCaps="true"
+        android:textColor="@color/muted"
+        android:textSize="12sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/brand" />
 
-    <TextView
-        android:id="@+id/status"
+    <View
+        android:id="@+id/brandRule"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="28dp"
-        android:text="Starting bridge…"
-        android:textColor="@color/teal"
-        android:textSize="15sp"
-        android:textStyle="bold"
+        android:layout_height="1dp"
+        android:layout_marginTop="16dp"
+        android:background="@color/line"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tagline" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnStart"
+    <!-- status cell -->
+    <LinearLayout
+        android:id="@+id/statusCell"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="Start bridge"
-        app:backgroundTint="@color/teal"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/bg_cell"
+        android:orientation="vertical"
+        android:padding="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/status" />
+        app:layout_constraintTop_toBottomOf="@id/brandRule">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnNotifications"
-        style="@style/Widget.Material3.Button.OutlinedButton"
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.14"
+            android:text="@string/label_status"
+            android:textColor="@color/muted"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:letterSpacing="-0.02"
+            android:text="@string/status_starting"
+            android:textColor="@color/fg"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:fontFamily="monospace"
+            android:text="@string/hint_bridge"
+            android:textColor="@color/muted"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- bridge cell -->
+    <LinearLayout
+        android:id="@+id/bridgeCell"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="Enable OTP notification access"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_cell"
+        android:orientation="vertical"
+        android:padding="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btnStart" />
+        app:layout_constraintTop_toBottomOf="@id/statusCell">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.14"
+            android:text="@string/label_bridge"
+            android:textColor="@color/muted"
+            android:textSize="11sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnStart"
+            style="@style/Widget.Jodu.Button.Solid"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:text="@string/action_start" />
+    </LinearLayout>
+
+    <!-- access cell -->
+    <LinearLayout
+        android:id="@+id/accessCell"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_cell"
+        android:orientation="vertical"
+        android:padding="16dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/bridgeCell">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.14"
+            android:text="@string/label_access"
+            android:textColor="@color/muted"
+            android:textSize="11sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnNotifications"
+            style="@style/Widget.Jodu.Button.Outline"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:text="@string/action_notifications" />
+    </LinearLayout>
 
     <TextView
-        android:id="@+id/hint"
+        android:id="@+id/footer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="18dp"
-        android:text="Keep this app running. Clipboard, OTP, media, files, and ping stay live while the foreground service is active."
-        android:textColor="@color/ink"
-        android:textSize="14sp"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.04"
+        android:text="@string/ports_footer"
+        android:textColor="@color/muted"
+        android:textSize="11sp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btnNotifications" />
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
