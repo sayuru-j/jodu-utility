@@ -262,6 +262,42 @@ export default function App() {
                   }
                 />
               </div>
+              <div className="settings-row settings-row-tone">
+                <div className="settings-copy">
+                  <span className="label">notification tone</span>
+                  <strong className="truncate">
+                    {state.notificationToneIsCustom
+                      ? state.notificationToneName || 'custom'
+                      : 'default'}
+                  </strong>
+                  <span className="hint">
+                    {state.notificationToneIsCustom
+                      ? 'custom file · plays on phone alerts'
+                      : 'bundled tone · plays on phone alerts'}
+                  </span>
+                </div>
+                <div className="tone-actions">
+                  <button
+                    type="button"
+                    onClick={() => sendCommand({ action: 'PREVIEW_NOTIFICATION_TONE' })}
+                  >
+                    preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendCommand({ action: 'PICK_NOTIFICATION_TONE' })}
+                  >
+                    choose
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!state.notificationToneIsCustom}
+                    onClick={() => sendCommand({ action: 'RESET_NOTIFICATION_TONE' })}
+                  >
+                    reset
+                  </button>
+                </div>
+              </div>
               <div className="settings-row">
                 <span className="label">hotkey</span>
                 <strong>ctrl + shift + c</strong>

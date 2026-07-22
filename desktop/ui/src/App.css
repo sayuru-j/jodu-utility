@@ -342,6 +342,44 @@
   background: var(--accent);
 }
 
+.settings-row-tone {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.tone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tone-actions button {
+  border: 1px solid var(--stroke);
+  background: transparent;
+  height: 2rem;
+  padding: 0 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  color: var(--fg);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.tone-actions button:hover:not(:disabled) {
+  background: var(--surface-elevated);
+  border-color: var(--stroke-strong);
+}
+
+.tone-actions button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .settings-actions {
   display: flex;
   gap: 0.55rem;

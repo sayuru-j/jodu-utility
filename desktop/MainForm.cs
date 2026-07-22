@@ -85,7 +85,8 @@ public sealed class MainForm : Form
         _bridge = new UiBridge(this);
         _notificationTone = new NotificationTonePlayer(
             () => _webView.CoreWebView2,
-            ResolveUiUrl);
+            ResolveUiUrl,
+            () => _settings.HasCustomNotificationTone ? _settings.CustomNotificationTonePath : null);
         _phoneToasts.PlayTone = () => _notificationTone.Play();
         WireServices();
     }
@@ -524,7 +525,45 @@ public sealed class MainForm : Form
                 _settings.ApplyAutoConnect(IsTruthy(cmd.Value));
                 PushUiState();
                 break;
+            case "PICK_NOTIFICATION_TONE":
+                PickNotificationTone();
+                break;
+            case "RESET_NOTIFICATION_TONE":
+                _settings.ResetNotificationTone();
+                PushUiState();
+                break;
+            case "PREVIEW_NOTIFICATION_TONE":
+                _notificationTone?.Play();
+                break;
         }
+    }
+
+    private void PickNotificationTone()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "Choose notification tone",
+            Filter =
+                "Audio files|*.ogg;*.mp3;*.wav;*.m4a;*.aac;*.flac;*.webm|" +
+                "Ogg (*.ogg)|*.ogg|" +
+                "MP3 (*.mp3)|*.mp3|" +
+                "WAV (*.wav)|*.wav|" +
+                "All files|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        if (!_settings.ApplyCustomNotificationTone(dialog.FileName))
+        {
+            _toasts.ShowInfo("JODU", "Could not set notification tone");
+            return;
+        }
+
+        PushUiState();
+        _notificationTone?.Play();
     }
 
     private static bool IsTruthy(string? value) =>
@@ -736,7 +775,9 @@ public sealed class MainForm : Form
             maximized = WindowState == FormWindowState.Maximized,
             startWithWindows = _settings.StartWithWindows,
             autoConnectLastDevice = _settings.AutoConnectLastDevice,
-            lastPeerDeviceName = _settings.LastPeerDeviceName
+            lastPeerDeviceName = _settings.LastPeerDeviceName,
+            notificationToneName = _settings.NotificationToneLabel,
+            notificationToneIsCustom = _settings.HasCustomNotificationTone
         };
 
         var json = JsonSerializer.Serialize(state, JoduMessage.JsonOptions);

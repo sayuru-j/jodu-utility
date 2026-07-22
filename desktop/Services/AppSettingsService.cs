@@ -11,6 +11,17 @@ public sealed class AppSettingsService
     public bool AutoConnectLastDevice { get; set; }
     public string? LastPeerDeviceId { get; set; }
     public string? LastPeerDeviceName { get; set; }
+    /// <summary>Absolute path to a user-selected notification tone, or null for default.</summary>
+    public string? CustomNotificationTonePath { get; set; }
+
+    public bool HasCustomNotificationTone =>
+        !string.IsNullOrWhiteSpace(CustomNotificationTonePath) &&
+        File.Exists(CustomNotificationTonePath);
+
+    public string NotificationToneLabel =>
+        HasCustomNotificationTone
+            ? Path.GetFileName(CustomNotificationTonePath!)
+            : "default";
 
     public static AppSettingsService Load()
     {
@@ -64,13 +75,57 @@ public sealed class AppSettingsService
         Save();
     }
 
-    private static string SettingsPath()
+    /// <summary>Copies the selected audio file into LocalAppData and saves the path.</summary>
+    public bool ApplyCustomNotificationTone(string sourcePath)
     {
-        var dir = Path.Combine(
+        if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+            return false;
+
+        try
+        {
+            var ext = Path.GetExtension(sourcePath);
+            if (string.IsNullOrWhiteSpace(ext))
+                ext = ".ogg";
+
+            var tonesDir = Path.Combine(AppDataDir(), "tones");
+            Directory.CreateDirectory(tonesDir);
+            var dest = Path.Combine(tonesDir, "custom" + ext.ToLowerInvariant());
+            File.Copy(sourcePath, dest, overwrite: true);
+            CustomNotificationTonePath = dest;
+            Save();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public void ResetNotificationTone()
+    {
+        var previous = CustomNotificationTonePath;
+        CustomNotificationTonePath = null;
+        Save();
+
+        if (string.IsNullOrWhiteSpace(previous)) return;
+        try
+        {
+            var tonesDir = Path.Combine(AppDataDir(), "tones");
+            if (previous.StartsWith(tonesDir, StringComparison.OrdinalIgnoreCase) && File.Exists(previous))
+                File.Delete(previous);
+        }
+        catch
+        {
+            // ignore cleanup failures
+        }
+    }
+
+    private static string AppDataDir() =>
+        Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "JODU");
-        return Path.Combine(dir, "settings.json");
-    }
+
+    private static string SettingsPath() => Path.Combine(AppDataDir(), "settings.json");
 
     private static void SetAutoStart(bool enabled)
     {

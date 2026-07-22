@@ -57,6 +57,8 @@ export type AppState = {
   startWithWindows?: boolean
   autoConnectLastDevice?: boolean
   lastPeerDeviceName?: string | null
+  notificationToneName?: string | null
+  notificationToneIsCustom?: boolean
 }
 
 type UiCommand = {
