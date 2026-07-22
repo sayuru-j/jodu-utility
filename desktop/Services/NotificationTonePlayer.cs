@@ -3,26 +3,33 @@ using Microsoft.Web.WebView2.Core;
 namespace Jodu.Desktop.Services;
 
 /// <summary>
-/// Plays notification tones for phone toasts (via WebView2 audio).
-/// Uses the packaged default OGG, or a user-selected custom file as a data URL.
+/// Plays UI tones via WebView2 audio — packaged default OGG, or a custom file as a data URL.
 /// </summary>
 public sealed class NotificationTonePlayer
 {
     private readonly Func<CoreWebView2?> _webView;
     private readonly Func<string> _uiBaseUrl;
     private readonly Func<string?> _customTonePath;
+    private readonly string _defaultAssetFileName;
+    private readonly string _jsSlot;
 
     public NotificationTonePlayer(
         Func<CoreWebView2?> webView,
         Func<string> uiBaseUrl,
-        Func<string?> customTonePath)
+        Func<string?> customTonePath,
+        string defaultAssetFileName = "notification.ogg",
+        string jsSlot = "__joduTone")
     {
         _webView = webView;
         _uiBaseUrl = uiBaseUrl;
         _customTonePath = customTonePath;
+        _defaultAssetFileName = string.IsNullOrWhiteSpace(defaultAssetFileName)
+            ? "notification.ogg"
+            : defaultAssetFileName.Trim();
+        _jsSlot = string.IsNullOrWhiteSpace(jsSlot) ? "__joduTone" : jsSlot.Trim();
     }
 
-    public void Play()
+    public void Play(bool loop = false)
     {
         try
         {
@@ -33,14 +40,51 @@ public sealed class NotificationTonePlayer
             if (string.IsNullOrWhiteSpace(url)) return;
 
             var jsonUrl = System.Text.Json.JsonSerializer.Serialize(url);
+            var slot = System.Text.Json.JsonSerializer.Serialize(_jsSlot);
+            var loopJs = loop ? "true" : "false";
             // Chromium plays common audio formats; keep a short-lived Audio element so GC doesn't cut it off.
             var script =
                 "(function(){" +
                 "try{" +
+                $"var slot={slot};" +
+                "var prev=window[slot];" +
+                "if(prev){try{prev.pause();}catch(e){} try{prev.src='';}catch(e){}}" +
                 $"var a=new Audio({jsonUrl});" +
                 "a.volume=0.78;" +
-                "window.__joduTone=a;" +
-                "a.play().catch(function(){});" +
+                $"a.loop={loopJs};" +
+                "window[slot]=a;" +
+                "var done=function(){" +
+                "if(window[slot]===a)window[slot]=null;" +
+                "try{window.dispatchEvent(new CustomEvent('jodu-tone-ended',{detail:slot}));}catch(e){}" +
+                "};" +
+                "if(!a.loop)a.addEventListener('ended',done);" +
+                "a.addEventListener('error',done);" +
+                "a.play().catch(done);" +
+                "}catch(e){}" +
+                "})();";
+            _ = core.ExecuteScriptAsync(script);
+        }
+        catch
+        {
+            // tone is best-effort
+        }
+    }
+
+    public void Stop()
+    {
+        try
+        {
+            var core = _webView();
+            if (core is null) return;
+
+            var slot = System.Text.Json.JsonSerializer.Serialize(_jsSlot);
+            var script =
+                "(function(){" +
+                "try{" +
+                $"var a=window[{slot}];" +
+                "if(a){try{a.pause();}catch(e){} try{a.currentTime=0;}catch(e){} try{a.src='';}catch(e){}" +
+                $"window[{slot}]=null;" +
+                "}" +
                 "}catch(e){}" +
                 "})();";
             _ = core.ExecuteScriptAsync(script);
@@ -71,7 +115,7 @@ public sealed class NotificationTonePlayer
             baseUrl = baseUrl[..^"/index.html".Length];
 
         // Dev: Vite serves public/ at root. Packaged: virtual host maps ui/dist (includes public assets).
-        return $"{baseUrl}/notification.ogg";
+        return $"{baseUrl}/{_defaultAssetFileName}";
     }
 
     private static string? TryBuildDataUrl(string path)
@@ -103,24 +147,4 @@ public sealed class NotificationTonePlayer
             ".webm" => "audio/webm",
             _ => "audio/ogg"
         };
-
-    /// <summary>Resolves on-disk default tone for docs / packaging checks.</summary>
-    public static string? FindToneFile()
-    {
-        var baseDir = AppContext.BaseDirectory;
-        var candidates = new[]
-        {
-            Path.Combine(baseDir, "ui", "notification.ogg"),
-            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "ui", "public", "notification.ogg")),
-            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "ui", "public", "notification.ogg")),
-        };
-
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-                return path;
-        }
-
-        return null;
-    }
 }

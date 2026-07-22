@@ -131,6 +131,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         JoduForegroundService.instance?.addUiListener(uiListener)
+        JoduForegroundService.instance?.refreshCallMonitor()
         refreshStatus()
     }
 
@@ -363,6 +364,27 @@ class MainActivity : AppCompatActivity() {
             != PackageManager.PERMISSION_GRANTED
         ) {
             needed += Manifest.permission.ACCESS_FINE_LOCATION
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed += Manifest.permission.READ_PHONE_STATE
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ANSWER_PHONE_CALLS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed += Manifest.permission.ANSWER_PHONE_CALLS
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed += Manifest.permission.READ_CALL_LOG
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed += Manifest.permission.READ_CONTACTS
         }
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)

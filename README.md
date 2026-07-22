@@ -14,6 +14,7 @@ A **hobby project**, built for fun. Use it, fork it, break it, improve it — co
 - **Clipboard sync** — phone ↔ desktop over WebSocket
 - **OTP forwarding** — regex parse from notifications → desktop toast + hotkey copy
 - **Notification mirror** — phone status-bar alerts as right-edge desktop popups (with thumbnail + tone)
+- **Incoming calls** — ringing popup on desktop with Answer / Decline
 - **Media control** — play / pause / skip / volume from desktop
 - **File transfer** — drag-and-drop desktop → phone; send from Android → desktop Downloads
 - **Phone telemetry** — battery, charging, Wi-Fi SSID on desktop
@@ -127,6 +128,8 @@ All data stays on-device / LAN — **no cloud backend**.
 | `TELEMETRY` | phone → desktop | Battery, Wi-Fi |
 | `OTP_DETECTED` | phone → desktop | Parsed OTP |
 | `NOTIFICATION` | phone → desktop | Notification mirror (+ optional image) |
+| `INCOMING_CALL` | phone → desktop | Ringing / answered / ended call state |
+| `CALL_CONTROL` | desktop → phone | Answer or decline a ringing call |
 | `MEDIA_CONTROL` / `MEDIA_STATE` | both | Playback control |
 | `FILE_TRANSFER` | either | Transfer progress |
 | `PING_DEVICE` | desktop → phone | Alert tone |

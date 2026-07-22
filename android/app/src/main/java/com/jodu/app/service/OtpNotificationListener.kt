@@ -20,6 +20,8 @@ class OtpNotificationListener : NotificationListenerService() {
 
         val notification = sbn.notification ?: return
         if ((notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
+        // Dedicated INCOMING_CALL popup handles ringing UI — skip dialer call toasts.
+        if (notification.category == Notification.CATEGORY_CALL) return
 
         val extras = notification.extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()

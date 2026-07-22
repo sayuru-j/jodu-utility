@@ -12,6 +12,8 @@ object EventTypes {
     const val PAIR_REQUEST = "PAIR_REQUEST"
     const val PAIR_RESPONSE = "PAIR_RESPONSE"
     const val FILE_TRANSFER = "FILE_TRANSFER"
+    const val INCOMING_CALL = "INCOMING_CALL"
+    const val CALL_CONTROL = "CALL_CONTROL"
 }
 
 object MediaActions {

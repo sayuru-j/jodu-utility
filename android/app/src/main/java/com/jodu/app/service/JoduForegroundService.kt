@@ -23,10 +23,12 @@ import com.jodu.app.network.DiscoveryService
 import com.jodu.app.network.FileHttpServer
 import com.jodu.app.network.FileUploadClient
 import com.jodu.app.network.JoduWebSocketClient
+import com.jodu.app.protocol.CallControlPayload
 import com.jodu.app.protocol.ClipboardPayload
 import com.jodu.app.protocol.DiscoveryPayload
 import com.jodu.app.protocol.EventTypes
 import com.jodu.app.protocol.FileTransferPayload
+import com.jodu.app.protocol.IncomingCallPayload
 import com.jodu.app.protocol.JoduJson
 import com.jodu.app.protocol.JoduMessage
 import com.jodu.app.protocol.JoduPorts
@@ -56,6 +58,7 @@ class JoduForegroundService : Service() {
     private lateinit var fileServer: FileHttpServer
     private lateinit var media: MediaControllerBridge
     private lateinit var ping: PingAlertHelper
+    private lateinit var callMonitor: IncomingCallMonitor
     private lateinit var clipboard: ClipboardManager
 
     private var desktop: DiscoveryPayload? = null
@@ -110,6 +113,9 @@ class JoduForegroundService : Service() {
         clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
         media = MediaControllerBridge(this)
         ping = PingAlertHelper(this)
+        callMonitor = IncomingCallMonitor(this) { payload ->
+            sendIncomingCall(payload)
+        }
         fileServer = FileHttpServer(this).also { server ->
             server.onProgress = { fileName, transferred, total ->
                 val percent = if (total > 0) ((transferred * 100) / total).toInt().coerceIn(0, 100) else -1
@@ -212,6 +218,7 @@ class JoduForegroundService : Service() {
 
         discovery.start()
         runCatching { fileServer.start() }
+        callMonitor.start()
 
         scope.launch {
             while (isActive) {
@@ -248,6 +255,7 @@ class JoduForegroundService : Service() {
         socket.disconnect()
         fileServer.stop()
         ping.stop()
+        if (::callMonitor.isInitialized) callMonitor.stop()
         scope.cancel()
         super.onDestroy()
     }
@@ -378,6 +386,15 @@ class JoduForegroundService : Service() {
             }
         }
         socket.send(EventTypes.NOTIFICATION, payload)
+    }
+
+    fun sendIncomingCall(payload: IncomingCallPayload) {
+        if (!isLinked) return
+        socket.send(EventTypes.INCOMING_CALL, payload)
+    }
+
+    fun refreshCallMonitor() {
+        if (::callMonitor.isInitialized) callMonitor.start()
     }
 
     private val notificationDedupe = LinkedHashMap<String, Long>()
@@ -541,6 +558,16 @@ class JoduForegroundService : Service() {
                 val action = JoduJson.payload<MediaControlPayload>(message)?.action ?: return
                 media.handle(action)
                 pushMediaState()
+            }
+
+            EventTypes.CALL_CONTROL -> {
+                val action = JoduJson.payload<CallControlPayload>(message)?.action
+                    ?.uppercase()
+                    ?: return
+                when (action) {
+                    "ANSWER" -> callMonitor.answer()
+                    "DECLINE" -> callMonitor.decline()
+                }
             }
 
             EventTypes.PING_DEVICE -> {

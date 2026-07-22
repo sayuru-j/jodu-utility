@@ -4,31 +4,15 @@ Planned improvements and features not yet implemented. Items here are documented
 
 ---
 
-## Incoming calls (answer / decline)
+## Incoming calls — OEM dialer quirks
 
-**Status:** To implement  
-**Priority:** Medium
+**Status:** Partially shipped  
+**Priority:** Low
 
-Mirror phone incoming calls on the desktop so the user can **answer** or **decline** from the PC while paired.
+Core telephony path is implemented (`INCOMING_CALL` / `CALL_CONTROL`, desktop Answer/Decline popup). Remaining polish:
 
-**Current behavior:** Phone calls are not surfaced on desktop.
-
-**Expected behavior:**
-
-- Show an incoming-call popup on desktop when the phone rings (caller name / number when available).
-- Actions: **Answer** and **Decline** that control the phone call.
-- Auto-dismiss when the call ends, is answered on the phone, or is rejected.
-
-**Relevant areas (for implementation):**
-
-- Android: `TelephonyCallback` / `PhoneStateListener`, or notification listener for dialer apps
-- Protocol: `INCOMING_CALL`, `CALL_CONTROL` (`ANSWER` / `DECLINE`)
-- Desktop: call popup or extend `NotificationPopupService`
-- Permissions: `READ_PHONE_STATE` and related call APIs on Android
-
-**Notes:**
-
-- OEM dialers vary; prefer Telecom / Telephony APIs over scraping notifications when possible.
-- Keep LAN-only; no cloud call relay.
+- Caller **display name** from contacts (needs `READ_CONTACTS`)
+- Stronger number resolution on Android 12+ (TelephonyCallback no longer provides the ringing number)
+- OEM-specific answer/decline reliability (some devices prefer `InCallService` / default-dialer role)
 
 ---

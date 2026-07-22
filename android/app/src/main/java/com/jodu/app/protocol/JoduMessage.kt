@@ -95,6 +95,21 @@ data class FileTransferPayload(
     val error: String? = null,
 )
 
+@Serializable
+data class IncomingCallPayload(
+    /** ringing | answered | ended | rejected */
+    val state: String = "ringing",
+    val number: String? = null,
+    @SerialName("displayName") val displayName: String? = null,
+    @SerialName("callId") val callId: String? = null,
+)
+
+@Serializable
+data class CallControlPayload(
+    /** ANSWER | DECLINE */
+    val action: String,
+)
+
 object JoduJson {
     val json = Json {
         ignoreUnknownKeys = true

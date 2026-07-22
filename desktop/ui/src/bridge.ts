@@ -59,6 +59,8 @@ export type AppState = {
   lastPeerDeviceName?: string | null
   notificationToneName?: string | null
   notificationToneIsCustom?: boolean
+  incomingCallToneName?: string | null
+  incomingCallToneIsCustom?: boolean
 }
 
 type UiCommand = {

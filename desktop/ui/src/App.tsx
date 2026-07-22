@@ -38,11 +38,29 @@ export default function App() {
   const [dragging, setDragging] = useState(false)
   const [note, setNote] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [previewingNotification, setPreviewingNotification] = useState(false)
+  const [previewingCall, setPreviewingCall] = useState(false)
 
   useEffect(() => subscribeState(setState), [])
 
   useEffect(() => {
-    if (!settingsOpen) return
+    const onToneEnded = (e: Event) => {
+      const slot = (e as CustomEvent<string>).detail
+      if (slot === '__joduTone') setPreviewingNotification(false)
+      if (slot === '__joduCallTone') setPreviewingCall(false)
+    }
+    window.addEventListener('jodu-tone-ended', onToneEnded)
+    return () => window.removeEventListener('jodu-tone-ended', onToneEnded)
+  }, [])
+
+  useEffect(() => {
+    if (!settingsOpen) {
+      sendCommand({ action: 'STOP_NOTIFICATION_TONE' })
+      sendCommand({ action: 'STOP_INCOMING_CALL_TONE' })
+      setPreviewingNotification(false)
+      setPreviewingCall(false)
+      return
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSettingsOpen(false)
     }
@@ -279,9 +297,18 @@ export default function App() {
                 <div className="tone-actions">
                   <button
                     type="button"
-                    onClick={() => sendCommand({ action: 'PREVIEW_NOTIFICATION_TONE' })}
+                    className={previewingNotification ? 'tone-stop' : undefined}
+                    onClick={() => {
+                      if (previewingNotification) {
+                        sendCommand({ action: 'STOP_NOTIFICATION_TONE' })
+                        setPreviewingNotification(false)
+                        return
+                      }
+                      sendCommand({ action: 'PREVIEW_NOTIFICATION_TONE' })
+                      setPreviewingNotification(true)
+                    }}
                   >
-                    preview
+                    {previewingNotification ? 'stop' : 'preview'}
                   </button>
                   <button
                     type="button"
@@ -293,6 +320,51 @@ export default function App() {
                     type="button"
                     disabled={!state.notificationToneIsCustom}
                     onClick={() => sendCommand({ action: 'RESET_NOTIFICATION_TONE' })}
+                  >
+                    reset
+                  </button>
+                </div>
+              </div>
+              <div className="settings-row settings-row-tone">
+                <div className="settings-copy">
+                  <span className="label">incoming call tone</span>
+                  <strong className="truncate">
+                    {state.incomingCallToneIsCustom
+                      ? state.incomingCallToneName || 'custom'
+                      : 'default'}
+                  </strong>
+                  <span className="hint">
+                    {state.incomingCallToneIsCustom
+                      ? 'custom file · plays on ringing calls'
+                      : 'bundled tone · plays on ringing calls'}
+                  </span>
+                </div>
+                <div className="tone-actions">
+                  <button
+                    type="button"
+                    className={previewingCall ? 'tone-stop' : undefined}
+                    onClick={() => {
+                      if (previewingCall) {
+                        sendCommand({ action: 'STOP_INCOMING_CALL_TONE' })
+                        setPreviewingCall(false)
+                        return
+                      }
+                      sendCommand({ action: 'PREVIEW_INCOMING_CALL_TONE' })
+                      setPreviewingCall(true)
+                    }}
+                  >
+                    {previewingCall ? 'stop' : 'preview'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendCommand({ action: 'PICK_INCOMING_CALL_TONE' })}
+                  >
+                    choose
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!state.incomingCallToneIsCustom}
+                    onClick={() => sendCommand({ action: 'RESET_INCOMING_CALL_TONE' })}
                   >
                     reset
                   </button>

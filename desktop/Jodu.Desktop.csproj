@@ -28,6 +28,10 @@
           CopyToOutputDirectory="PreserveNewest"
           Link="ui\notification.ogg"
           Condition="Exists('ui\public\notification.ogg')" />
+    <None Include="ui\public\incoming_call.ogg"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="ui\incoming_call.ogg"
+          Condition="Exists('ui\public\incoming_call.ogg')" />
   </ItemGroup>
 
   <!-- WinForms-only: drop the WPF WebView2 assembly that triggers MSB3277 (WindowsBase). -->

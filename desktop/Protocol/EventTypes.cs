@@ -13,6 +13,8 @@ public static class EventTypes
     public const string PairRequest = "PAIR_REQUEST";
     public const string PairResponse = "PAIR_RESPONSE";
     public const string FileTransfer = "FILE_TRANSFER";
+    public const string IncomingCall = "INCOMING_CALL";
+    public const string CallControl = "CALL_CONTROL";
 }
 
 public static class MediaActions

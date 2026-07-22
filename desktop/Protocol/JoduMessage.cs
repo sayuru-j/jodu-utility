@@ -124,3 +124,18 @@ public sealed class FileTransferPayload
     public string Status { get; set; } = "progress";
     public string? Error { get; set; }
 }
+
+public sealed class IncomingCallPayload
+{
+    /// <summary>ringing | answered | ended | rejected</summary>
+    public string State { get; set; } = "ringing";
+    public string? Number { get; set; }
+    public string? DisplayName { get; set; }
+    public string? CallId { get; set; }
+}
+
+public sealed class CallControlPayload
+{
+    /// <summary>ANSWER | DECLINE</summary>
+    public string Action { get; set; } = string.Empty;
+}

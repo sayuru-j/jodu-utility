@@ -380,6 +380,11 @@
   cursor: default;
 }
 
+.tone-actions button.tone-stop {
+  border-color: var(--stroke-strong);
+  background: var(--surface-elevated);
+}
+
 .settings-actions {
   display: flex;
   gap: 0.55rem;

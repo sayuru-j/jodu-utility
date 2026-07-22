@@ -19,7 +19,9 @@ public sealed class MainForm : Form
     private readonly HotkeyService _hotkey = new();
     private readonly ToastService _toasts = new();
     private readonly NotificationPopupService _phoneToasts = new();
+    private readonly IncomingCallPopupService _callPopup = new();
     private NotificationTonePlayer? _notificationTone;
+    private NotificationTonePlayer? _incomingCallTone;
     private readonly ClipboardBridge _clipboard = new();
     private readonly AppSettingsService _settings = AppSettingsService.Load();
     private readonly UiBridge _bridge;
@@ -86,8 +88,20 @@ public sealed class MainForm : Form
         _notificationTone = new NotificationTonePlayer(
             () => _webView.CoreWebView2,
             ResolveUiUrl,
-            () => _settings.HasCustomNotificationTone ? _settings.CustomNotificationTonePath : null);
+            () => _settings.HasCustomNotificationTone ? _settings.CustomNotificationTonePath : null,
+            defaultAssetFileName: "notification.ogg",
+            jsSlot: "__joduTone");
+        _incomingCallTone = new NotificationTonePlayer(
+            () => _webView.CoreWebView2,
+            ResolveUiUrl,
+            () => _settings.HasCustomIncomingCallTone ? _settings.CustomIncomingCallTonePath : null,
+            defaultAssetFileName: "incoming_call.ogg",
+            jsSlot: "__joduCallTone");
         _phoneToasts.PlayTone = () => _notificationTone.Play();
+        _callPopup.PlayTone = () => _incomingCallTone.Play(loop: true);
+        _callPopup.StopTone = () => _incomingCallTone.Stop();
+        _callPopup.AnswerRequested = () => _ = SendCallControlAsync("ANSWER");
+        _callPopup.DeclineRequested = () => _ = SendCallControlAsync("DECLINE");
         WireServices();
     }
 
@@ -526,7 +540,11 @@ public sealed class MainForm : Form
                 PushUiState();
                 break;
             case "PICK_NOTIFICATION_TONE":
-                PickNotificationTone();
+                PickToneFile(
+                    "Choose notification tone",
+                    path => _settings.ApplyCustomNotificationTone(path),
+                    () => _notificationTone?.Play(),
+                    "Could not set notification tone");
                 break;
             case "RESET_NOTIFICATION_TONE":
                 _settings.ResetNotificationTone();
@@ -535,14 +553,38 @@ public sealed class MainForm : Form
             case "PREVIEW_NOTIFICATION_TONE":
                 _notificationTone?.Play();
                 break;
+            case "STOP_NOTIFICATION_TONE":
+                _notificationTone?.Stop();
+                break;
+            case "PICK_INCOMING_CALL_TONE":
+                PickToneFile(
+                    "Choose incoming call tone",
+                    path => _settings.ApplyCustomIncomingCallTone(path),
+                    () => _incomingCallTone?.Play(),
+                    "Could not set incoming call tone");
+                break;
+            case "RESET_INCOMING_CALL_TONE":
+                _settings.ResetIncomingCallTone();
+                PushUiState();
+                break;
+            case "PREVIEW_INCOMING_CALL_TONE":
+                _incomingCallTone?.Play();
+                break;
+            case "STOP_INCOMING_CALL_TONE":
+                _incomingCallTone?.Stop();
+                break;
         }
     }
 
-    private void PickNotificationTone()
+    private void PickToneFile(
+        string title,
+        Func<string, bool> apply,
+        Action preview,
+        string failMessage)
     {
         using var dialog = new OpenFileDialog
         {
-            Title = "Choose notification tone",
+            Title = title,
             Filter =
                 "Audio files|*.ogg;*.mp3;*.wav;*.m4a;*.aac;*.flac;*.webm|" +
                 "Ogg (*.ogg)|*.ogg|" +
@@ -556,14 +598,14 @@ public sealed class MainForm : Form
         if (dialog.ShowDialog(this) != DialogResult.OK)
             return;
 
-        if (!_settings.ApplyCustomNotificationTone(dialog.FileName))
+        if (!apply(dialog.FileName))
         {
-            _toasts.ShowInfo("JODU", "Could not set notification tone");
+            _toasts.ShowInfo("JODU", failMessage);
             return;
         }
 
         PushUiState();
-        _notificationTone?.Play();
+        preview();
     }
 
     private static bool IsTruthy(string? value) =>
@@ -649,6 +691,20 @@ public sealed class MainForm : Form
         _toasts.ShowInfo("JODU", "Ping sent to phone");
     }
 
+    private async Task SendCallControlAsync(string action)
+    {
+        try
+        {
+            await _hub.BroadcastAsync(JoduMessage.Create(
+                EventTypes.CallControl,
+                new CallControlPayload { Action = action }));
+        }
+        catch
+        {
+            // best-effort
+        }
+    }
+
     private void OnMessage(JoduMessage message)
     {
         BeginInvoke(() =>
@@ -696,6 +752,26 @@ public sealed class MainForm : Form
                             note.Text,
                             note.ImageBase64,
                             stackKey);
+                    }
+                    break;
+                }
+
+                case EventTypes.IncomingCall:
+                {
+                    var call = message.GetPayload<IncomingCallPayload>();
+                    if (call is null) break;
+                    var state = (call.State ?? "").Trim().ToLowerInvariant();
+                    if (state is "ended" or "answered" or "rejected")
+                    {
+                        _incomingCallTone?.Stop();
+                        _callPopup.Dismiss();
+                        break;
+                    }
+
+                    if (state is "ringing" or "")
+                    {
+                        ShowFromTray();
+                        _callPopup.ShowIncoming(call.DisplayName, call.Number);
                     }
                     break;
                 }
@@ -777,7 +853,9 @@ public sealed class MainForm : Form
             autoConnectLastDevice = _settings.AutoConnectLastDevice,
             lastPeerDeviceName = _settings.LastPeerDeviceName,
             notificationToneName = _settings.NotificationToneLabel,
-            notificationToneIsCustom = _settings.HasCustomNotificationTone
+            notificationToneIsCustom = _settings.HasCustomNotificationTone,
+            incomingCallToneName = _settings.IncomingCallToneLabel,
+            incomingCallToneIsCustom = _settings.HasCustomIncomingCallTone
         };
 
         var json = JsonSerializer.Serialize(state, JoduMessage.JsonOptions);
@@ -858,6 +936,7 @@ public sealed class MainForm : Form
         _files.Dispose();
         _hotkey.Dispose();
         _phoneToasts.Dispose();
+        _callPopup.Dispose();
         Application.Exit();
     }
 
@@ -873,6 +952,7 @@ public sealed class MainForm : Form
             _files.Dispose();
             _hotkey.Dispose();
             _phoneToasts.Dispose();
+            _callPopup.Dispose();
             _webView.Dispose();
         }
 

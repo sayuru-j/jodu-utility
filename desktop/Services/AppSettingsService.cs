@@ -13,14 +13,25 @@ public sealed class AppSettingsService
     public string? LastPeerDeviceName { get; set; }
     /// <summary>Absolute path to a user-selected notification tone, or null for default.</summary>
     public string? CustomNotificationTonePath { get; set; }
+    /// <summary>Absolute path to a user-selected incoming-call tone, or null for default.</summary>
+    public string? CustomIncomingCallTonePath { get; set; }
 
     public bool HasCustomNotificationTone =>
         !string.IsNullOrWhiteSpace(CustomNotificationTonePath) &&
         File.Exists(CustomNotificationTonePath);
 
+    public bool HasCustomIncomingCallTone =>
+        !string.IsNullOrWhiteSpace(CustomIncomingCallTonePath) &&
+        File.Exists(CustomIncomingCallTonePath);
+
     public string NotificationToneLabel =>
         HasCustomNotificationTone
             ? Path.GetFileName(CustomNotificationTonePath!)
+            : "default";
+
+    public string IncomingCallToneLabel =>
+        HasCustomIncomingCallTone
+            ? Path.GetFileName(CustomIncomingCallTonePath!)
             : "default";
 
     public static AppSettingsService Load()
@@ -76,7 +87,19 @@ public sealed class AppSettingsService
     }
 
     /// <summary>Copies the selected audio file into LocalAppData and saves the path.</summary>
-    public bool ApplyCustomNotificationTone(string sourcePath)
+    public bool ApplyCustomNotificationTone(string sourcePath) =>
+        ApplyCustomTone(sourcePath, "custom", path => CustomNotificationTonePath = path);
+
+    public bool ApplyCustomIncomingCallTone(string sourcePath) =>
+        ApplyCustomTone(sourcePath, "call-custom", path => CustomIncomingCallTonePath = path);
+
+    public void ResetNotificationTone() =>
+        ResetTone(CustomNotificationTonePath, path => CustomNotificationTonePath = path);
+
+    public void ResetIncomingCallTone() =>
+        ResetTone(CustomIncomingCallTonePath, path => CustomIncomingCallTonePath = path);
+
+    private bool ApplyCustomTone(string sourcePath, string fileStem, Action<string> assignPath)
     {
         if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             return false;
@@ -89,9 +112,9 @@ public sealed class AppSettingsService
 
             var tonesDir = Path.Combine(AppDataDir(), "tones");
             Directory.CreateDirectory(tonesDir);
-            var dest = Path.Combine(tonesDir, "custom" + ext.ToLowerInvariant());
+            var dest = Path.Combine(tonesDir, fileStem + ext.ToLowerInvariant());
             File.Copy(sourcePath, dest, overwrite: true);
-            CustomNotificationTonePath = dest;
+            assignPath(dest);
             Save();
             return true;
         }
@@ -101,10 +124,9 @@ public sealed class AppSettingsService
         }
     }
 
-    public void ResetNotificationTone()
+    private void ResetTone(string? previous, Action<string?> clearPath)
     {
-        var previous = CustomNotificationTonePath;
-        CustomNotificationTonePath = null;
+        clearPath(null);
         Save();
 
         if (string.IsNullOrWhiteSpace(previous)) return;

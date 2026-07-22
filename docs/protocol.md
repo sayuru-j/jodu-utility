@@ -22,6 +22,8 @@ Every frame is UTF-8 JSON:
 | `CLIPBOARD_UPDATE` | either | Synced clipboard text |
 | `OTP_DETECTED` | phone → desktop | Parsed OTP code |
 | `NOTIFICATION` | phone → desktop | Phone status-bar notification mirror |
+| `INCOMING_CALL` | phone → desktop | Cellular call state (`ringing` / `answered` / `ended` / `rejected`) |
+| `CALL_CONTROL` | desktop → phone | `ANSWER` / `DECLINE` for a ringing call |
 | `MEDIA_CONTROL` | desktop → phone | `PLAY` / `PAUSE` / `NEXT` / `PREVIOUS` / volume |
 | `MEDIA_STATE` | phone → desktop | Title, artist, playing, volume |
 | `PING_DEVICE` | desktop → phone | Trigger phone alert tone |
@@ -71,6 +73,27 @@ Every frame is UTF-8 JSON:
     "postedAt": 1710000000000,
     "imageBase64": "<optional JPEG thumbnail, base64>"
   }
+}
+```
+
+**Incoming call**
+```json
+{
+  "type": "INCOMING_CALL",
+  "payload": {
+    "state": "ringing",
+    "number": "+15551234567",
+    "displayName": "Alex Rivera",
+    "callId": "a1b2c3d4e5f6"
+  }
+}
+```
+
+**Call control**
+```json
+{
+  "type": "CALL_CONTROL",
+  "payload": { "action": "ANSWER" }
 }
 ```
 
