@@ -8,20 +8,33 @@ import android.service.notification.StatusBarNotification
 import com.jodu.app.protocol.EventTypes
 import com.jodu.app.protocol.NotificationPayload
 import com.jodu.app.protocol.OtpPayload
+import com.jodu.app.util.CallNotificationParser
 import com.jodu.app.util.NotificationImageHelper
 import com.jodu.app.util.OtpParser
 
 class OtpNotificationListener : NotificationListenerService() {
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        instance = this
+        scanActiveCallNotifications()
+    }
+
+    override fun onListenerDisconnected() {
+        if (instance === this) instance = null
+        super.onListenerDisconnected()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
-        if (sbn.isOngoing) return
         if (sbn.packageName == packageName) return
         if (IGNORED_PACKAGES.contains(sbn.packageName)) return
 
         val notification = sbn.notification ?: return
         if ((notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
-        // Dedicated INCOMING_CALL popup handles ringing UI — skip dialer call toasts.
-        if (notification.category == Notification.CATEGORY_CALL) return
+
+        if (handleCallNotification(sbn.packageName, notification)) return
+
+        if (sbn.isOngoing) return
 
         val extras = notification.extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
@@ -57,6 +70,26 @@ class OtpNotificationListener : NotificationListenerService() {
         )
     }
 
+    private fun handleCallNotification(packageName: String, notification: Notification): Boolean {
+        if (!CallNotificationParser.isLikelyCallNotification(packageName, notification)) return false
+        val hint = CallNotificationParser.parse(notification) ?: return true
+        JoduForegroundService.instance?.onCallNotificationHint(
+            displayName = hint.displayName,
+            number = hint.number,
+        )
+        return true
+    }
+
+    private fun scanActiveCallNotifications() {
+        val active = runCatching { activeNotifications }.getOrNull() ?: return
+        for (sbn in active) {
+            if (sbn.packageName == packageName) continue
+            if (IGNORED_PACKAGES.contains(sbn.packageName)) continue
+            val notification = sbn.notification ?: continue
+            handleCallNotification(sbn.packageName, notification)
+        }
+    }
+
     private fun resolveAppName(packageName: String): String? {
         return try {
             val pm = packageManager
@@ -77,6 +110,13 @@ class OtpNotificationListener : NotificationListenerService() {
 
     companion object {
         const val TYPE = EventTypes.OTP_DETECTED
+
+        @Volatile
+        private var instance: OtpNotificationListener? = null
+
+        fun requestActiveCallScan() {
+            instance?.scanActiveCallNotifications()
+        }
 
         private val IGNORED_PACKAGES = setOf(
             "android",

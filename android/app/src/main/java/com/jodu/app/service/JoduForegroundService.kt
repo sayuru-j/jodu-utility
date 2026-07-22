@@ -393,6 +393,15 @@ class JoduForegroundService : Service() {
         socket.send(EventTypes.INCOMING_CALL, payload)
     }
 
+    fun onCallNotificationHint(displayName: String?, number: String?) {
+        if (!::callMonitor.isInitialized) return
+        callMonitor.applyCallerHint(displayName, number)
+    }
+
+    fun requestActiveCallNotificationScan() {
+        OtpNotificationListener.requestActiveCallScan()
+    }
+
     fun refreshCallMonitor() {
         if (::callMonitor.isInitialized) callMonitor.start()
     }
