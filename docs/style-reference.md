@@ -1,6 +1,8 @@
 # Style reference
 
-JODU UI follows the **Nothing OS–inspired** design system from **dasa-utility** (`C:\Users\Sayuru at Fleximal\Desktop\dasa-utility`).
+JODU UI follows the **Nothing OS–inspired** design system from **[dasa-utility](https://github.com/sayuru-j/dasa-utility)**.
+
+See also: [Documentation index](README.md) · [Project README](../README.md)
 
 ## Source
 
