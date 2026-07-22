@@ -1,16 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#0A1110</color>
-    <color name="bg_elev">#121A18</color>
-    <color name="fg">#F2F5F4</color>
-    <color name="muted">#7A8A86</color>
-    <color name="line">#24302C</color>
-    <color name="glyph">#2DD4BF</color>
+    <!-- dasa-utility Nothing OS tokens (JODU teal accent) -->
+    <color name="bg">#0A0A0A</color>
+    <color name="bg_elev">#111111</color>
+    <color name="bg_elevated">#161616</color>
+    <color name="fg">#F5F5F5</color>
+    <color name="muted">#888888</color>
+    <color name="tertiary">#555555</color>
+    <color name="line">#1E1E1E</color>
+    <color name="line_strong">#2A2A2A</color>
+    <color name="glyph">#FFFFFF</color>
     <color name="accent">#2DD4BF</color>
-    <color name="accent_dim">#1A2E2A</color>
+    <color name="accent_dim">#262DD4BF</color>
+    <color name="success">#4ADE80</color>
+    <color name="success_dim">#264ADE80</color>
+    <color name="info">#38BDF8</color>
+    <color name="titlebar_hover">#1A1A1A</color>
     <color name="danger">#E81123</color>
 
-    <!-- legacy aliases kept for any leftover refs -->
+    <!-- legacy aliases -->
     <color name="ink">@color/fg</color>
     <color name="teal">@color/accent</color>
     <color name="foam">@color/bg</color>

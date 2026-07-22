@@ -140,7 +140,7 @@
                     android:fontFamily="monospace"
                     android:letterSpacing="0.14"
                     android:text="@string/status_pinging"
-                    android:textColor="@color/muted"
+                    android:textColor="@color/tertiary"
                     android:textSize="11sp" />
 
                 <TextView
@@ -177,7 +177,7 @@
                     android:fontFamily="monospace"
                     android:letterSpacing="0.14"
                     android:text="@string/status_incoming"
-                    android:textColor="@color/muted"
+                    android:textColor="@color/tertiary"
                     android:textSize="11sp" />
 
                 <TextView
@@ -229,7 +229,7 @@
                     android:fontFamily="monospace"
                     android:letterSpacing="0.14"
                     android:text="@string/label_status"
-                    android:textColor="@color/muted"
+                    android:textColor="@color/tertiary"
                     android:textSize="11sp" />
 
                 <TextView
@@ -269,7 +269,7 @@
                     android:fontFamily="monospace"
                     android:letterSpacing="0.14"
                     android:text="@string/label_devices"
-                    android:textColor="@color/muted"
+                    android:textColor="@color/tertiary"
                     android:textSize="11sp" />
 
                 <TextView
@@ -305,7 +305,7 @@
                     android:fontFamily="monospace"
                     android:letterSpacing="0.14"
                     android:text="@string/label_bridge"
-                    android:textColor="@color/muted"
+                    android:textColor="@color/tertiary"
                     android:textSize="11sp" />
 
                 <LinearLayout
@@ -357,7 +357,7 @@
                     android:fontFamily="monospace"
                     android:letterSpacing="0.14"
                     android:text="@string/label_files"
-                    android:textColor="@color/muted"
+                    android:textColor="@color/tertiary"
                     android:textSize="11sp" />
 
                 <TextView
@@ -407,7 +407,7 @@
                     android:fontFamily="monospace"
                     android:letterSpacing="0.14"
                     android:text="@string/label_access"
-                    android:textColor="@color/muted"
+                    android:textColor="@color/tertiary"
                     android:textSize="11sp" />
 
                 <com.google.android.material.button.MaterialButton

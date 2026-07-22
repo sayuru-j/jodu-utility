@@ -165,10 +165,12 @@ public sealed class NotificationPopupService : IDisposable
 /// </summary>
 internal sealed class NotificationCardForm : Form
 {
-    private static readonly Color Bg = Color.FromArgb(245, 10, 10, 10);
-    private static readonly Color Fg = Color.FromArgb(242, 242, 242);
-    private static readonly Color Muted = Color.FromArgb(122, 122, 122);
-    private static readonly Color Line = Color.FromArgb(200, 55, 55, 55);
+    private static readonly Color Bg = Color.FromArgb(255, 10, 10, 10);
+    private static readonly Color SurfaceAlt = Color.FromArgb(255, 17, 17, 17);
+    private static readonly Color Fg = Color.FromArgb(245, 245, 245);
+    private static readonly Color Muted = Color.FromArgb(136, 136, 136);
+    private static readonly Color Tertiary = Color.FromArgb(85, 85, 85);
+    private static readonly Color Line = Color.FromArgb(255, 30, 30, 30);
 
     private const int CornerRadius = 18;
     private const int Pad = 14;
@@ -215,7 +217,7 @@ internal sealed class NotificationCardForm : Form
         _body = body;
         _ownedImage = thumbnail;
 
-        _mono = TryFont(new[] { "Cascadia Mono", "Consolas", "Courier New" }, 7.5f, FontStyle.Regular);
+        _mono = TryFont(new[] { "IBM Plex Mono", "Cascadia Mono", "Consolas" }, 7.5f, FontStyle.Regular);
         _titleFont = TryFont(new[] { "Segoe UI Semibold", "Segoe UI" }, 10.5f, FontStyle.Bold);
         _bodyFont = TryFont(new[] { "Segoe UI", "Arial" }, 8.75f, FontStyle.Regular);
         _closeFont = TryFont(new[] { "Segoe UI", "Arial" }, 11f, FontStyle.Regular);
@@ -325,7 +327,7 @@ internal sealed class NotificationCardForm : Form
         var bounds = new RectangleF(0.5f, 0.5f, Width - 1f, Height - 1f);
         using (var path = RoundedRect(bounds, CornerRadius))
         {
-            using var fill = new SolidBrush(Bg);
+            using var fill = new SolidBrush(SurfaceAlt);
             g.FillPath(fill, path);
             using var border = new Pen(Line, 1f);
             g.DrawPath(border, path);
@@ -342,7 +344,8 @@ internal sealed class NotificationCardForm : Form
             g.DrawEllipse(ring, ThumbLeft + 0.5f, thumbTop + 0.5f, ThumbSize - 1.5f, ThumbSize - 1.5f);
         }
 
-        using var mutedBrush = new SolidBrush(Muted);
+        using var mutedBrush = new SolidBrush(Tertiary);
+        using var secondaryBrush = new SolidBrush(Muted);
         using var fgBrush = new SolidBrush(Fg);
 
         g.DrawString(_app, _mono, mutedBrush, new RectangleF(textLeft, Pad, Math.Max(40, textWidth), 14),
@@ -359,7 +362,7 @@ internal sealed class NotificationCardForm : Form
         if (!string.IsNullOrEmpty(_body))
         {
             var bodyHeight = EstimateBodyHeight(_body);
-            g.DrawString(_body, _bodyFont, mutedBrush, new RectangleF(textLeft, y, textWidth, bodyHeight),
+            g.DrawString(_body, _bodyFont, secondaryBrush, new RectangleF(textLeft, y, textWidth, bodyHeight),
                 new StringFormat { Trimming = StringTrimming.EllipsisCharacter });
         }
 

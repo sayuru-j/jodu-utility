@@ -36,7 +36,7 @@
             android:fontFamily="monospace"
             android:text="@string/action_close"
             android:textAllCaps="false"
-            android:textColor="@color/muted" />
+            android:textColor="@color/tertiary" />
     </LinearLayout>
 
     <View
@@ -78,7 +78,7 @@
                     android:fontFamily="monospace"
                     android:letterSpacing="0.14"
                     android:text="@string/label_ports"
-                    android:textColor="@color/muted"
+                    android:textColor="@color/tertiary"
                     android:textSize="11sp" />
 
                 <TextView
@@ -114,7 +114,7 @@
                     android:layout_marginTop="10dp"
                     android:fontFamily="monospace"
                     android:text="@string/ports_hint"
-                    android:textColor="@color/muted"
+                    android:textColor="@color/tertiary"
                     android:textSize="11sp" />
             </LinearLayout>
 
@@ -132,7 +132,7 @@
                     android:fontFamily="monospace"
                     android:letterSpacing="0.14"
                     android:text="@string/label_access"
-                    android:textColor="@color/muted"
+                    android:textColor="@color/tertiary"
                     android:textSize="11sp" />
 
                 <com.google.android.material.button.MaterialButton

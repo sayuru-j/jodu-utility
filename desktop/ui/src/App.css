@@ -28,10 +28,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  height: 2.5rem;
+  height: 2rem;
   margin: 0 calc(var(--pad-x) * -1);
   padding: 0 0.25rem 0 0.85rem;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--stroke);
   user-select: none;
   cursor: default;
 }
@@ -54,9 +54,9 @@
 }
 
 .title-name {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.7rem;
-  letter-spacing: 0.22em;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
 }
 
 .title-link {
@@ -66,7 +66,7 @@
   gap: 0.45rem;
   min-width: 0;
   max-width: 100%;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -103,22 +103,22 @@
 }
 
 .window-controls button {
-  width: 2.6rem;
+  width: 2.875rem;
   height: 100%;
   border: 0;
   background: transparent;
   display: grid;
   place-items: center;
-  transition: background 0.12s ease;
+  transition: background 0.1s ease;
 }
 
 .window-controls button:hover,
 .window-controls button.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--titlebar-hover);
 }
 
 .window-controls button.close:hover {
-  background: #e81123;
+  background: var(--titlebar-close);
 }
 
 .ico {
@@ -219,7 +219,7 @@
 .text-btn {
   border: 0;
   background: transparent;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.12em;
   color: var(--muted);
@@ -241,11 +241,12 @@
 }
 
 .settings-row {
-  border: 1px solid var(--line);
+  border: 1px solid var(--stroke);
   padding: 0.75rem 0.85rem;
   display: grid;
   gap: 0.25rem;
-  background: rgba(17, 17, 17, 0.72);
+  background: var(--surface-alt);
+  border-radius: 6px;
 }
 
 .settings-row strong {
@@ -255,7 +256,7 @@
 }
 
 .settings-row .hint {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -269,14 +270,15 @@
 }
 
 .settings-actions button {
-  border: 1px solid var(--line);
+  border: 1px solid var(--stroke);
   background: transparent;
   height: 2.4rem;
   padding: 0 0.85rem;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
   letter-spacing: 0.04em;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  border-radius: 4px;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
 .settings-actions button:hover:not(:disabled) {
@@ -286,14 +288,16 @@
 }
 
 .settings-actions .solid {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+  font-weight: 500;
 }
 
 .settings-actions .solid:hover:not(:disabled) {
-  background: transparent;
-  color: var(--accent);
+  background: #e0e0e0;
+  border-color: #e0e0e0;
+  color: var(--surface);
 }
 
 .top {
@@ -303,24 +307,25 @@
   justify-content: space-between;
   gap: 1rem;
   padding-bottom: 0.45rem;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--stroke);
 }
 
 .brand-block h1 {
   margin: 0;
-  font-size: clamp(1.5rem, 5vw, 3rem);
-  font-weight: 700;
-  letter-spacing: -0.06em;
+  font-family: var(--font-sans);
+  font-size: clamp(1.5rem, 5vw, 2.75rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
   line-height: 0.9;
 }
 
 .brand-block p {
   margin: 0.15rem 0 0;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.7rem;
-  letter-spacing: 0.28em;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
 
 @keyframes blink {
@@ -337,8 +342,10 @@
   gap: 0.75rem;
   flex-wrap: wrap;
   padding: 0.7rem 0.85rem;
-  border: 1px solid var(--accent);
-  background: var(--accent-soft);
+  border: 1px solid var(--stroke);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--accent-dim), var(--surface-alt) 38%);
 }
 
 .pair-banner strong {
@@ -353,20 +360,23 @@
 }
 
 .pair-actions button {
-  border: 1px solid var(--line);
+  border: 1px solid var(--stroke);
   background: transparent;
   height: 2.3rem;
   padding: 0 0.8rem;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
   letter-spacing: 0.04em;
+  border-radius: 4px;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .pair-actions .solid,
 .pair-actions button.solid {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+  font-weight: 500;
 }
 
 .devices {
@@ -386,7 +396,7 @@
 
 .devices-empty {
   margin: 0.55rem 0 0;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--muted);
 }
@@ -406,20 +416,21 @@
   gap: 0.65rem;
   align-items: center;
   text-align: left;
-  border: 1px solid var(--line);
-  background: transparent;
+  border: 1px solid var(--stroke);
+  background: var(--surface-alt);
   padding: 0.6rem 0.75rem;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  border-radius: 6px;
+  transition: border-color 0.12s ease, background 0.12s ease;
 }
 
 .device-row:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--stroke-strong);
+  background: var(--surface-elevated);
 }
 
 .device-row.paired {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  background: linear-gradient(90deg, var(--accent-dim), var(--surface-alt) 38%);
 }
 
 .device-row.pending {
@@ -450,7 +461,7 @@
 }
 
 .device-action {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -470,8 +481,9 @@
   min-height: 0;
   min-width: 0;
   padding: clamp(0.65rem, 1.5vh, 0.95rem) clamp(0.7rem, 1.5vw, 1rem);
-  border: 1px solid var(--line);
-  background: rgba(17, 17, 17, 0.72);
+  border: 1px solid var(--stroke);
+  background: var(--surface-alt);
+  border-radius: 6px;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -479,11 +491,11 @@
 }
 
 .label {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.65rem;
-  letter-spacing: 0.18em;
-  text-transform: lowercase;
-  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
 .stats {
@@ -499,7 +511,7 @@
 }
 
 .stat strong .chg {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.12em;
   color: var(--muted);
@@ -549,23 +561,23 @@
 .transport button,
 .tools button,
 .pick {
-  border: 1px solid var(--line);
+  border: 1px solid var(--stroke);
   background: transparent;
   min-width: 2.4rem;
   height: 2.4rem;
   padding: 0 0.75rem;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.74rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
   letter-spacing: 0.04em;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  border-radius: 4px;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
 .transport button:hover:not(:disabled),
 .tools button:hover:not(:disabled),
 .pick:hover {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
+  background: var(--surface-elevated);
+  border-color: var(--stroke-strong);
 }
 
 .transport .play {
@@ -601,7 +613,7 @@
 }
 
 .note {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   color: var(--muted);
 }
@@ -627,19 +639,21 @@
 }
 
 .tools .solid {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+  font-weight: 500;
 }
 
 .tools .solid:hover:not(:disabled) {
-  background: transparent;
-  color: var(--accent);
+  background: #e0e0e0;
+  border-color: #e0e0e0;
+  color: var(--surface);
 }
 
 .clip {
   margin: auto 0 0;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   color: var(--muted);
   line-height: 1.35;
@@ -659,11 +673,11 @@
   gap: 0.5rem;
   flex-wrap: wrap;
   padding-top: 0.4rem;
-  border-top: 1px solid var(--line);
-  font-family: 'Space Mono', monospace;
-  font-size: 0.62rem;
+  border-top: 1px solid var(--stroke);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
   letter-spacing: 0.06em;
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 
 .dot-sep {

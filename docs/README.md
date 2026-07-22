@@ -10,6 +10,7 @@ Index for project documentation.
 | [Android](android.md) | Kotlin app, permissions, services |
 | [Troubleshooting](troubleshooting.md) | Common setup and LAN issues |
 | [Roadmap](roadmap.md) | To implement — planned features |
+| [Style reference](style-reference.md) | Nothing OS tokens (from dasa-utility) |
 
 ## Screenshots
 
