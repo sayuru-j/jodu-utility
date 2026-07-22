@@ -131,6 +131,42 @@
                     android:layout_height="wrap_content"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.14"
+                    android:text="@string/label_background"
+                    android:textColor="@color/tertiary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnBackgroundRun"
+                    style="@style/Widget.Jodu.Button.Outline"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/action_background_run" />
+
+                <TextView
+                    android:id="@+id/backgroundRunHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="monospace"
+                    android:text="@string/background_run_hint"
+                    android:textColor="@color/tertiary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_cell"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.14"
                     android:text="@string/label_access"
                     android:textColor="@color/tertiary"
                     android:textSize="11sp" />

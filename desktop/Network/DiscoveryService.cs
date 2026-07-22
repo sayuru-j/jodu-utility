@@ -15,6 +15,7 @@ public sealed class DiscoveryService : IDisposable
     private readonly string _deviceName;
     private readonly ConcurrentDictionary<string, (DiscoveryPayload Peer, DateTime Seen)> _peers = new();
     private readonly ConcurrentDictionary<string, DateTime> _lastReply = new();
+    private string _lastPeerSignature = string.Empty;
     private Task? _listenTask;
     private Task? _announceTask;
     private Task? _pruneTask;
@@ -213,7 +214,7 @@ public sealed class DiscoveryService : IDisposable
                         }
 
                         _peers[peer.DeviceId] = (peer, DateTime.UtcNow);
-                        PeersChanged?.Invoke(Peers);
+                        EmitPeersIfChanged();
 
                         // Unicast our identity back — more reliable than phone receiving broadcasts.
                         // Rate-limit so announce↔reply does not amplify into a tight loop.
@@ -318,8 +319,16 @@ public sealed class DiscoveryService : IDisposable
             }
 
             if (removed)
-                PeersChanged?.Invoke(Peers);
+                EmitPeersIfChanged();
         }
+    }
+
+    private void EmitPeersIfChanged()
+    {
+        var signature = string.Join("|", Peers.Select(p => $"{p.DeviceId}:{p.Ip}:{p.WsPort}"));
+        if (signature == _lastPeerSignature) return;
+        _lastPeerSignature = signature;
+        PeersChanged?.Invoke(Peers);
     }
 
     private static string GetLocalIp() => HttpListenerFactory.GetLocalIp();

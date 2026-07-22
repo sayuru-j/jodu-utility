@@ -142,12 +142,15 @@ class JoduForegroundService : Service() {
             onMessage = ::onSocketMessage,
             onConnectionChanged = { connected ->
                 if (connected) {
-                    pairStatus = "linked"
-                    incomingPair = null
-                    outgoingPairDeviceId = null
-                    clearPairRequestNotification()
+                    if (pairStatus != "linked") {
+                        pairStatus = "linked"
+                        incomingPair = null
+                        outgoingPairDeviceId = null
+                        clearPairRequestNotification()
+                    }
                 } else if (pairStatus == "linked") {
-                    pairStatus = "idle"
+                    // Keep paired UX while the socket reconnects.
+                    pairStatus = if (desktop != null) "accepted" else "idle"
                 }
                 refreshOngoingNotification()
                 notifyUi()
@@ -174,6 +177,7 @@ class JoduForegroundService : Service() {
             },
             onPairRequest = { req ->
                 scope.launch(Dispatchers.Main) {
+                    if (isLinked) return@launch
                     presentIncomingPair(req)
                 }
             },
@@ -439,7 +443,15 @@ class JoduForegroundService : Service() {
     }
 
     private fun presentIncomingPair(req: PairPayload) {
-        // Keep the latest request; bridge-on means we always surface it immediately.
+        if (isLinked) return
+
+        val samePhone = pairStatus == "incoming" &&
+            incomingPair?.fromDeviceId.equals(req.fromDeviceId, ignoreCase = true)
+        if (samePhone) {
+            incomingPair = req
+            return
+        }
+
         incomingPair = req
         pairStatus = "incoming"
         showPairRequestNotification(req)

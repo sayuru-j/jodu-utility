@@ -18,6 +18,13 @@
     <color name="titlebar_hover">#1A1A1A</color>
     <color name="danger">#E81123</color>
 
+    <!-- style-reference token aliases -->
+    <color name="surface">@color/bg</color>
+    <color name="surface_alt">@color/bg_elev</color>
+    <color name="surface_elevated">@color/bg_elevated</color>
+    <color name="stroke">@color/line</color>
+    <color name="stroke_strong">@color/line_strong</color>
+
     <!-- legacy aliases -->
     <color name="ink">@color/fg</color>
     <color name="teal">@color/accent</color>

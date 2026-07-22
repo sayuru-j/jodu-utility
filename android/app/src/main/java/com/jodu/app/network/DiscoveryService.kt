@@ -35,6 +35,8 @@ class DiscoveryService(
     private var pruneJob: Job? = null
     private var multicastLock: WifiManager.MulticastLock? = null
     private val peers = ConcurrentHashMap<String, Pair<DiscoveryPayload, Long>>()
+    private val lastReply = ConcurrentHashMap<String, Long>()
+    private var lastPeerSignature: String = ""
 
     fun start() {
         if (socket != null) return
@@ -74,9 +76,9 @@ class DiscoveryService(
                                 id != peer.deviceId && entry.first.ip == ip
                             }
                             peers[peer.deviceId] = peer.copy(ip = ip) to System.currentTimeMillis()
-                            onPeersChanged(currentPeers())
+                            emitPeersIfChanged()
                             // Unicast our identity back — more reliable than broadcast alone.
-                            if (ip.isNotBlank()) {
+                            if (ip.isNotBlank() && shouldReply(peer.deviceId)) {
                                 sendTo(ip, EventTypes.DISCOVERY, localDiscovery())
                             }
                         }
@@ -126,7 +128,7 @@ class DiscoveryService(
                     if (stale) removed = true
                     stale
                 }
-                if (removed) onPeersChanged(currentPeers())
+                if (removed) emitPeersIfChanged()
             }
         }
     }
@@ -151,6 +153,22 @@ class DiscoveryService(
 
     fun currentPeers(): List<DiscoveryPayload> =
         peers.values.map { it.first }.sortedBy { it.deviceName.lowercase() }
+
+    private fun shouldReply(deviceId: String): Boolean {
+        val now = System.currentTimeMillis()
+        val last = lastReply[deviceId] ?: 0L
+        if (now - last < 2000L) return false
+        lastReply[deviceId] = now
+        return true
+    }
+
+    private fun emitPeersIfChanged() {
+        val signature = currentPeers()
+            .joinToString("|") { "${it.deviceId}:${it.ip}:${it.wsPort}" }
+        if (signature == lastPeerSignature) return
+        lastPeerSignature = signature
+        onPeersChanged(currentPeers())
+    }
 
     private fun announce() {
         val payload = localDiscovery()

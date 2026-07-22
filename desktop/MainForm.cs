@@ -21,6 +21,7 @@ public sealed class MainForm : Form
     private readonly NotificationPopupService _phoneToasts = new();
     private NotificationTonePlayer? _notificationTone;
     private readonly ClipboardBridge _clipboard = new();
+    private readonly AppSettingsService _settings = AppSettingsService.Load();
     private readonly UiBridge _bridge;
 
     private TelemetryPayload? _telemetry;
@@ -33,9 +34,15 @@ public sealed class MainForm : Form
     private bool _connected;
     private FileTransferPayload? _transfer;
     private const int AndroidFileHttpPort = 19286;
+    private readonly bool _startMinimized;
+    private bool _allowVisible = true;
+    private DateTime _lastAutoConnectAttempt = DateTime.MinValue;
 
-    public MainForm()
+    public MainForm(bool startMinimized = false)
     {
+        _startMinimized = startMinimized;
+        if (startMinimized)
+            _allowVisible = false;
         Text = "JODU";
         Width = 960;
         Height = 680;
@@ -158,6 +165,7 @@ public sealed class MainForm : Form
                 {
                     EnsurePeerFromLan();
                 }
+                TryAutoConnect();
                 PushUiState();
             });
         };
@@ -166,6 +174,8 @@ public sealed class MainForm : Form
         {
             BeginInvoke(() =>
             {
+                if (_connected) return;
+
                 // UDP bursts retry — keep showing the same incoming request (no modal).
                 var samePhone = _pairStatus == "incoming" &&
                     string.Equals(_incomingPair?.FromDeviceId, req.FromDeviceId, StringComparison.OrdinalIgnoreCase);
@@ -232,6 +242,8 @@ public sealed class MainForm : Form
                 _pairStatus = "linked";
                 _incomingPair = null;
                 _outgoingPairDeviceId = null;
+                if (_peer is not null)
+                    _settings.RememberPeer(_peer.DeviceId, _peer.DeviceName);
                 if (_peer is null || string.IsNullOrWhiteSpace(_peer.Ip))
                 {
                     EnsurePeerFromLan(remoteIp);
@@ -257,7 +269,7 @@ public sealed class MainForm : Form
             {
                 _connected = _hub.HasClients;
                 if (!_connected && _pairStatus == "linked")
-                    _pairStatus = "idle";
+                    _pairStatus = _peer is not null ? "accepted" : "idle";
                 UpdateTrayStatus();
                 PushUiState();
             });
@@ -360,6 +372,7 @@ public sealed class MainForm : Form
             _hub.Start();
             _files.Start();
             _hotkey.Register();
+            _settings.ApplyStartWithWindows(_settings.StartWithWindows);
 
             await _webView.EnsureCoreWebView2Async();
             _webView.CoreWebView2.Settings.AreDevToolsEnabled = true;
@@ -503,11 +516,24 @@ public sealed class MainForm : Form
             case "PAIR_REJECT":
                 RejectIncomingPair();
                 break;
+            case "SET_START_WITH_WINDOWS":
+                _settings.ApplyStartWithWindows(IsTruthy(cmd.Value));
+                PushUiState();
+                break;
+            case "SET_AUTO_CONNECT":
+                _settings.ApplyAutoConnect(IsTruthy(cmd.Value));
+                PushUiState();
+                break;
         }
     }
 
+    private static bool IsTruthy(string? value) =>
+        string.Equals(value, "1", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+
     private void RequestPair(string deviceId)
     {
+        if (_connected) return;
         var target = _lanPeers.FirstOrDefault(p => p.DeviceId == deviceId);
         if (target is null) return;
         _outgoingPairDeviceId = deviceId;
@@ -624,7 +650,13 @@ public sealed class MainForm : Form
                         var app = string.IsNullOrWhiteSpace(note.AppName)
                             ? note.PackageName
                             : note.AppName!;
-                        _phoneToasts.ShowPhoneNotification(app, note.Title, note.Text, note.ImageBase64);
+                        var stackKey = string.IsNullOrWhiteSpace(note.PackageName) ? app : note.PackageName;
+                        _phoneToasts.ShowPhoneNotification(
+                            app,
+                            note.Title,
+                            note.Text,
+                            note.ImageBase64,
+                            stackKey);
                     }
                     break;
                 }
@@ -701,7 +733,10 @@ public sealed class MainForm : Form
             clipboardPreview = Truncate(_clipboard.MobileClipboard, 80),
             httpPort = JoduPorts.FileHttp,
             wsPort = JoduPorts.WebSocket,
-            maximized = WindowState == FormWindowState.Maximized
+            maximized = WindowState == FormWindowState.Maximized,
+            startWithWindows = _settings.StartWithWindows,
+            autoConnectLastDevice = _settings.AutoConnectLastDevice,
+            lastPeerDeviceName = _settings.LastPeerDeviceName
         };
 
         var json = JsonSerializer.Serialize(state, JoduMessage.JsonOptions);
@@ -721,6 +756,7 @@ public sealed class MainForm : Form
 
     private void ShowFromTray()
     {
+        _allowVisible = true;
         Show();
         WindowState = FormWindowState.Normal;
         TopMost = true;
@@ -728,6 +764,37 @@ public sealed class MainForm : Form
         BringToFront();
         TopMost = false;
         WindowChrome.Flash(Handle);
+    }
+
+    protected override void SetVisibleCore(bool value)
+    {
+        if (!_allowVisible && value)
+        {
+            if (!IsHandleCreated)
+                CreateHandle();
+            value = false;
+        }
+
+        base.SetVisibleCore(value);
+    }
+
+    private void TryAutoConnect()
+    {
+        if (!_settings.AutoConnectLastDevice) return;
+        if (_connected) return;
+        if (_pairStatus is "outgoing" or "incoming") return;
+        if (string.IsNullOrWhiteSpace(_settings.LastPeerDeviceId)) return;
+
+        var now = DateTime.UtcNow;
+        if (now - _lastAutoConnectAttempt < TimeSpan.FromSeconds(8))
+            return;
+
+        var target = _lanPeers.FirstOrDefault(p =>
+            string.Equals(p.DeviceId, _settings.LastPeerDeviceId, StringComparison.OrdinalIgnoreCase));
+        if (target is null) return;
+
+        _lastAutoConnectAttempt = now;
+        RequestPair(target.DeviceId);
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)

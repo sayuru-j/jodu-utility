@@ -45,5 +45,9 @@
     <string name="port_http">file http · 19286</string>
     <string name="ports_hint">lan bridge endpoints used with desktop</string>
     <string name="label_access">access</string>
+    <string name="label_background">background</string>
+    <string name="action_background_run">allow background run</string>
+    <string name="background_run_hint">disable battery restrictions so the bridge stays alive</string>
+    <string name="background_run_granted">unrestricted · background allowed</string>
     <string name="devices_empty">scanning for desktops…</string>
 </resources>

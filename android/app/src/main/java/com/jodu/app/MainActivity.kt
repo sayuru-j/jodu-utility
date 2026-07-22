@@ -7,11 +7,11 @@ import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -30,7 +30,6 @@ import com.jodu.app.service.JoduForegroundService
 class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var linkLabel: TextView
-    private lateinit var linkGlyph: View
     private lateinit var pairBanner: View
     private lateinit var pairFrom: TextView
     private lateinit var pingBanner: View
@@ -70,7 +69,6 @@ class MainActivity : AppCompatActivity() {
         rootContent = findViewById(R.id.rootContent)
         status = findViewById(R.id.status)
         linkLabel = findViewById(R.id.linkLabel)
-        linkGlyph = findViewById(R.id.linkGlyph)
         pairBanner = findViewById(R.id.pairBanner)
         pairFrom = findViewById(R.id.pairFrom)
         pingBanner = findViewById(R.id.pingBanner)
@@ -99,6 +97,7 @@ class MainActivity : AppCompatActivity() {
             prefs.edit().putBoolean(JoduForegroundService.PREF_BRIDGE_ENABLED, checked).apply()
             if (checked) {
                 requestRuntimePermissions()
+                maybeRequestBackgroundRun()
                 startBridge()
             } else {
                 stopBridge()
@@ -106,10 +105,7 @@ class MainActivity : AppCompatActivity() {
             refreshStatus()
         }
 
-        findViewById<Button>(R.id.btnNotifications).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
-        findViewById<Button>(R.id.btnSettings).setOnClickListener {
+        findViewById<ImageButton>(R.id.btnTopSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
         findViewById<Button>(R.id.btnAccept).setOnClickListener {
@@ -185,13 +181,11 @@ class MainActivity : AppCompatActivity() {
         if (linked) {
             linkLabel.text = getString(R.string.service_paired, pairedName ?: "desktop")
             linkLabel.setTextColor(ContextCompat.getColor(this, R.color.fg))
-            linkGlyph.setBackgroundResource(R.drawable.bg_glyph_on)
         } else {
             linkLabel.setText(
                 if (bridgeEnabled) R.string.service_running else R.string.service_waiting,
             )
             linkLabel.setTextColor(ContextCompat.getColor(this, R.color.muted))
-            linkGlyph.setBackgroundResource(R.drawable.bg_glyph)
         }
 
         if (incoming != null && bridgeEnabled) {
@@ -245,8 +239,32 @@ class MainActivity : AppCompatActivity() {
         return byIp.values.toList()
     }
 
+    private var lastDeviceRenderKey = ""
+
     private fun renderDevices(peers: List<DiscoveryPayload>, service: JoduForegroundService?) {
         val bridgeEnabled = prefs.getBoolean(JoduForegroundService.PREF_BRIDGE_ENABLED, true)
+        val linked = service?.isLinked == true
+        val outgoing = service?.outgoingPairDeviceId
+        val pairedId = service?.pairedDesktop?.deviceId
+        val renderKey = buildString {
+            append(linked)
+            append('|')
+            append(outgoing)
+            append('|')
+            append(pairedId)
+            append('|')
+            append(bridgeEnabled)
+            append('|')
+            peers.forEach { peer ->
+                append(peer.deviceId)
+                append(':')
+                append(peer.ip)
+                append(';')
+            }
+        }
+        if (renderKey == lastDeviceRenderKey && deviceList.childCount > 0) return
+        lastDeviceRenderKey = renderKey
+
         deviceList.removeAllViews()
         if (peers.isEmpty()) {
             devicesEmpty.visibility = View.VISIBLE
@@ -257,9 +275,6 @@ class MainActivity : AppCompatActivity() {
         }
         devicesEmpty.visibility = View.GONE
 
-        val linked = service?.isLinked == true
-        val outgoing = service?.outgoingPairDeviceId
-        val pairedId = service?.pairedDesktop?.deviceId
         val busy = linked || !bridgeEnabled
 
         peers.forEach { peer ->
@@ -365,5 +380,16 @@ class MainActivity : AppCompatActivity() {
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), 10)
         }
+    }
+
+    private fun maybeRequestBackgroundRun() {
+        if (BatteryOptimizationHelper.isIgnoringBatteryOptimizations(this)) return
+        if (prefs.getBoolean(PREF_BATTERY_PROMPTED, false)) return
+        prefs.edit().putBoolean(PREF_BATTERY_PROMPTED, true).apply()
+        BatteryOptimizationHelper.requestUnrestrictedBackground(this)
+    }
+
+    companion object {
+        private const val PREF_BATTERY_PROMPTED = "battery_prompted"
     }
 }

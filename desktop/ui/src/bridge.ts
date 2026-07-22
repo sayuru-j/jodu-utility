@@ -54,6 +54,9 @@ export type AppState = {
   httpPort: number
   wsPort: number
   maximized?: boolean
+  startWithWindows?: boolean
+  autoConnectLastDevice?: boolean
+  lastPeerDeviceName?: string | null
 }
 
 type UiCommand = {

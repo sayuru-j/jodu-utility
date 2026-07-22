@@ -133,24 +133,9 @@ export default function App() {
         onDoubleClick={() => sendCommand({ action: 'WINDOW_MAXIMIZE' })}
       >
         <div className="titlebar-brand">
-          <motion.span
-            className="title-glyph"
-            aria-hidden
-            animate={
-              state.connected
-                ? { scale: [1, 1.25, 1], opacity: [1, 0.7, 1] }
-                : { scale: 1, opacity: 1 }
-            }
-            transition={
-              state.connected
-                ? { duration: 2.2, repeat: Infinity, ease: 'easeInOut' }
-                : { duration: 0.2 }
-            }
-          />
           <span className="title-name">JODU</span>
         </div>
         <div className={`title-link ${state.connected ? 'on' : ''}`}>
-          <span className="glyph" aria-hidden />
           <span>{state.connected ? `paired · ${device}` : 'waiting'}</span>
         </div>
         <div className="window-controls">
@@ -235,6 +220,48 @@ export default function App() {
               </button>
             </div>
             <div className="settings-grid">
+              <div className="settings-row settings-row-toggle">
+                <div className="settings-copy">
+                  <span className="label">startup</span>
+                  <strong>Start with Windows</strong>
+                  <span className="hint">launch minimized to tray</span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!!state.startWithWindows}
+                  className={`settings-switch ${state.startWithWindows ? 'on' : ''}`}
+                  onClick={() =>
+                    sendCommand({
+                      action: 'SET_START_WITH_WINDOWS',
+                      value: state.startWithWindows ? '0' : '1',
+                    })
+                  }
+                />
+              </div>
+              <div className="settings-row settings-row-toggle">
+                <div className="settings-copy">
+                  <span className="label">auto connect</span>
+                  <strong>Last paired phone</strong>
+                  <span className="hint">
+                    {state.lastPeerDeviceName
+                      ? `reconnect to ${state.lastPeerDeviceName} when on LAN`
+                      : 'pair once to remember a device'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!!state.autoConnectLastDevice}
+                  className={`settings-switch ${state.autoConnectLastDevice ? 'on' : ''}`}
+                  onClick={() =>
+                    sendCommand({
+                      action: 'SET_AUTO_CONNECT',
+                      value: state.autoConnectLastDevice ? '0' : '1',
+                    })
+                  }
+                />
+              </div>
               <div className="settings-row">
                 <span className="label">hotkey</span>
                 <strong>ctrl + shift + c</strong>
@@ -285,8 +312,13 @@ export default function App() {
           >
             <motion.header className="top" variants={fadeUp} transition={{ duration: 0.3 }}>
               <div className="brand-block">
-                <h1>JODU</h1>
-                <p>pair</p>
+                <div className="brand-title-row">
+                  <span className="brand-icon" aria-hidden>
+                    <img src="/icon.ico" alt="" draggable={false} />
+                  </span>
+                  <h1>JODU</h1>
+                </div>
+                <p className="brand-tag">pair</p>
               </div>
             </motion.header>
 
@@ -303,7 +335,9 @@ export default function App() {
                     ? 'waiting for accept…'
                     : state.connected
                       ? 'paired'
-                      : 'tap to request pair'}
+                      : state.pairStatus === 'accepted'
+                        ? 'connecting…'
+                        : 'tap to request pair'}
                 </span>
               </div>
               {peers.length === 0 ? (
@@ -326,7 +360,11 @@ export default function App() {
                           <button
                             type="button"
                             className={`device-row ${paired ? 'paired' : ''} ${pending ? 'pending' : ''}`}
-                            disabled={state.connected || state.pairStatus === 'outgoing'}
+                            disabled={
+                              state.connected ||
+                              state.pairStatus === 'outgoing' ||
+                              state.pairStatus === 'accepted'
+                            }
                             onClick={() =>
                               sendCommand({ action: 'PAIR_REQUEST', value: p.deviceId })
                             }
